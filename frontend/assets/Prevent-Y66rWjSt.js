@@ -1,1 +1,256 @@
-import{u as k,e as b,j as e,P as S,I as C,K as h,C as x,B as P,b as g,w as y,S as A,a as T,r as E,A as H}from"./index-DAvlYmAS.js";import{SCRIPT_HI as v,SCRIPT_ROMAN as I,SCRIPT_EN as R,speakHindi as L}from"./PhoneCall-CY1IJGsx.js";function z(){const n=k(),{D:a,S:m,can:f}=n,w=a.W,[u,c]=b.useState(!1),r=b.useRef(null),i=Object.entries(n.calls).sort((s,t)=>t[1].at-s[1].at),p=[...new Set([...a.candidates,...Object.keys(n.calls)])],o=i.reduce((s,[,t])=>(s[t.outcome]=(s[t.outcome]||0)+1,s),{});return e.jsxs(e.Fragment,{children:[e.jsx(S,{title:"Prevention calls",desc:"Accounts that just started behaving like a mule — new, first pattern, medium score — get a Hindi warning call before they become an accused. Prevention, not punishment: no hold, just a warning.",sources:["Mule score","Voice agent"],actions:e.jsx(e.Fragment,{children:e.jsxs("button",{className:"btn ghost",onClick:()=>{if(u){r.current&&r.current(),c(!1);return}c(!0);const s=new Audio("./call-hi.mp3");let t=!1;const l=()=>{t||(t=!0,r.current=L(v,null,()=>c(!1)))};s.addEventListener("error",l),s.addEventListener("ended",()=>c(!1)),s.addEventListener("playing",()=>{t=!0}),s.play().catch(l),r.current=()=>{s.pause();try{window.speechSynthesis.cancel()}catch{}}},children:[e.jsx(C,{name:u?"pause":"play",size:14}),u?"Stop":"Play the Hindi script"]})})}),e.jsxs("div",{className:"kpis",children:[e.jsx(h,{label:"In the warning band",value:a.candidates.length,tone:"accent",sub:`score ${n.settings.callLo}–${n.settings.holdThr-1}, account ≤ 90 days, first pattern`}),e.jsx(h,{label:"Calls made",value:i.length,sub:"logged to the case and audit trail"}),e.jsx(h,{label:"Holder admitted renting the account",value:o.admitted||0,tone:"rec",sub:"escalated for bank follow-up"}),e.jsx(h,{label:"Denied / unsure / no answer",value:(o.denied||0)+(o.unsure||0)+(o.noanswer||0),sub:"kept on watch"})]}),e.jsxs("div",{className:"grid g-2",children:[e.jsx(x,{title:"Warning queue",sub:"Ranked by score. The rule is deliberately simple and visible: new account + money in and quickly out + medium score + not yet on any complaint trail.",bodyClass:"",children:e.jsx("div",{className:"tbl-wrap",children:e.jsxs("table",{className:"tbl",children:[e.jsx("thead",{children:e.jsxs("tr",{children:[e.jsx("th",{children:"Account holder"}),e.jsx("th",{children:"Pattern"}),e.jsx("th",{children:"Score"}),e.jsx("th",{})]})}),e.jsxs("tbody",{children:[p.map(s=>{const t=w.accounts[s],l=a.scores[s],d=a.behaviour.stats[s],j=n.calls[s];return e.jsxs("tr",{className:"click",...E(()=>n.open("account",s)),children:[e.jsxs("td",{children:[e.jsx("div",{className:"cell-main",children:t.name}),e.jsxs("div",{className:"cell-sub",children:[t.occ,", ",t.ageY," · ",P[t.bank]," · opened ",t.opened," days ago"]})]}),e.jsxs("td",{style:{maxWidth:320},children:[e.jsx("div",{style:{fontSize:13},children:l.reasons[0]}),e.jsx("div",{className:"cell-sub",children:d?`${g(d.inAmt)} in · ${g(d.outAmt)} out · last ${y(d.lastT,m.clock)}`:""})]}),e.jsx("td",{children:e.jsx(A,{score:l.score})}),e.jsx("td",{onClick:N=>N.stopPropagation(),children:j?e.jsxs(T,{tone:j.outcome==="admitted"?"rec":"neutral",children:["Called · ",j.outcome]}):f("call")?e.jsx("button",{className:"btn accent sm nowrap",onClick:()=>n.startCall(s),children:"☎ Call now"}):e.jsx("span",{className:"muted",style:{fontSize:12},children:"—"})})]},s)}),p.length===0&&e.jsx("tr",{children:e.jsx("td",{colSpan:4,children:e.jsx("div",{className:"empty",children:e.jsx("b",{children:"No one in the warning band right now."})})})})]})]})})}),e.jsxs(x,{title:"What the holder hears",sub:"Short, plain and in their language. Read out by an AI voice; the reply is attached to the case.",children:[e.jsx("div",{className:"script",children:v.map((s,t)=>e.jsxs("p",{children:[e.jsx("span",{children:s}),e.jsx("span",{className:"tl-r",children:I[t]})]},t))}),e.jsxs("p",{className:"sec",style:{fontSize:12.5,marginTop:10},children:[e.jsx("b",{children:"English:"})," ",R]}),e.jsxs("div",{className:"note info",children:["In production the call goes from the bank's official number under the bank's policy (ElevenLabs voice agent + Twilio). Here it plays the recorded ElevenLabs file if ",e.jsx("span",{className:"mono",children:"call-hi.mp3"})," is in the site, otherwise the browser's Hindi voice."]})]})]}),i.length>0&&e.jsx(x,{title:"Call log",style:{marginTop:18},bodyClass:"",children:e.jsx("div",{className:"tbl-wrap",children:e.jsxs("table",{className:"tbl",children:[e.jsx("thead",{children:e.jsxs("tr",{children:[e.jsx("th",{children:"Time"}),e.jsx("th",{children:"Holder"}),e.jsx("th",{children:"Reply"}),e.jsx("th",{children:"By"})]})}),e.jsx("tbody",{children:i.map(([s,t])=>e.jsxs("tr",{children:[e.jsx("td",{className:"mono",children:y(t.at,m.clock)}),e.jsx("td",{children:e.jsx(H,{id:s})}),e.jsxs("td",{children:["“",t.label,"”"]}),e.jsx("td",{children:t.by})]},s))})]})})})]})}export{z as default};
+import {
+ u as k,
+ e as b,
+ j as e,
+ P as S,
+ I as C,
+ K as h,
+ C as x,
+ B as P,
+ b as g,
+ w as y,
+ S as A,
+ a as T,
+ r as E,
+ A as H
+} from "./index-DAvlYmAS.js";
+import {
+ SCRIPT_HI as v,
+ SCRIPT_ROMAN as I,
+ SCRIPT_EN as R,
+ speakHindi as L
+} from "./PhoneCall-CY1IJGsx.js";
+
+function z() {
+ const n = k(),
+  {
+   D: a,
+   S: m,
+   can: f
+  } = n,
+  w = a.W,
+  [u, c] = b.useState(!1),
+  r = b.useRef(null),
+  i = Object.entries(n.calls).sort((s, t) => t[1].at - s[1].at),
+  p = [...new Set([...a.candidates, ...Object.keys(n.calls)])].filter(s => a.scores[s]),
+  o = i.reduce((s, [, t]) => (s[t.outcome] = (s[t.outcome] || 0) + 1, s), {});
+ return e.jsxs(e.Fragment, {
+  children: [e.jsx(S, {
+   title: "Prevention calls",
+   desc: "Accounts that just started behaving like a mule — new, first pattern, medium score — get a Hindi warning call before they become an accused. Prevention, not punishment: no hold, just a warning.",
+   sources: ["Mule score", "Voice agent"],
+   actions: e.jsx(e.Fragment, {
+    children: e.jsxs("button", {
+     className: "btn ghost",
+     onClick: () => {
+      if (u) {
+       r.current && r.current(), c(!1);
+       return
+      }
+      c(!0);
+      const s = new Audio("./call-hi.mp3");
+      let t = !1;
+      const l = () => {
+       t || (t = !0, r.current = L(v, null, () => c(!1)))
+      };
+      s.addEventListener("error", l), s.addEventListener("ended", () => c(!1)), s.addEventListener("playing", () => {
+       t = !0
+      }), s.play().catch(l), r.current = () => {
+       s.pause();
+       try {
+        window.speechSynthesis.cancel()
+       } catch {}
+      }
+     },
+     children: [e.jsx(C, {
+      name: u ? "pause" : "play",
+      size: 14
+     }), u ? "Stop" : "Play the Hindi script"]
+    })
+   })
+  }), e.jsxs("div", {
+   className: "kpis",
+   children: [e.jsx(h, {
+    label: "In the warning band",
+    value: a.candidates.length,
+    tone: "accent",
+    sub: `score ${n.settings.callLo}–${n.settings.holdThr-1}, account ≤ 90 days, first pattern`
+   }), e.jsx(h, {
+    label: "Calls made",
+    value: i.length,
+    sub: "logged to the case and audit trail"
+   }), e.jsx(h, {
+    label: "Holder admitted renting the account",
+    value: o.admitted || 0,
+    tone: "rec",
+    sub: "escalated for bank follow-up"
+   }), e.jsx(h, {
+    label: "Denied / unsure / no answer",
+    value: (o.denied || 0) + (o.unsure || 0) + (o.noanswer || 0),
+    sub: "kept on watch"
+   })]
+  }), e.jsxs("div", {
+   className: "grid g-2",
+   children: [e.jsx(x, {
+    title: "Warning queue",
+    sub: "Ranked by score. The rule is deliberately simple and visible: new account + money in and quickly out + medium score + not yet on any complaint trail.",
+    bodyClass: "",
+    children: e.jsx("div", {
+     className: "tbl-wrap",
+     children: e.jsxs("table", {
+      className: "tbl",
+      children: [e.jsx("thead", {
+       children: e.jsxs("tr", {
+        children: [e.jsx("th", {
+         children: "Account holder"
+        }), e.jsx("th", {
+         children: "Pattern"
+        }), e.jsx("th", {
+         children: "Score"
+        }), e.jsx("th", {})]
+       })
+      }), e.jsxs("tbody", {
+       children: [p.map(s => {
+        const t = w.accounts[s],
+         l = a.scores[s],
+         d = a.behaviour.stats[s],
+         j = n.calls[s];
+        return e.jsxs("tr", {
+         className: "click",
+         ...E(() => n.open("account", s)),
+         children: [e.jsxs("td", {
+          children: [e.jsx("div", {
+           className: "cell-main",
+           children: t.name
+          }), e.jsxs("div", {
+           className: "cell-sub",
+           children: [t.occ, ", ", t.ageY, " · ", P[t.bank], " · opened ", t.opened, " days ago"]
+          })]
+         }), e.jsxs("td", {
+          style: {
+           maxWidth: 320
+          },
+          children: [e.jsx("div", {
+           style: {
+            fontSize: 13
+           },
+           children: l.reasons[0]
+          }), e.jsx("div", {
+           className: "cell-sub",
+           children: d ? `${g(d.inAmt)} in · ${g(d.outAmt)} out · last ${y(d.lastT,m.clock)}` : ""
+          })]
+         }), e.jsx("td", {
+          children: e.jsx(A, {
+           score: l.score
+          })
+         }), e.jsx("td", {
+          onClick: N => N.stopPropagation(),
+          children: j ? e.jsxs(T, {
+           tone: j.outcome === "admitted" ? "rec" : "neutral",
+           children: ["Called · ", j.outcome]
+          }) : f("call") ? e.jsx("button", {
+           className: "btn accent sm nowrap",
+           onClick: () => n.startCall(s),
+           children: "☎ Call now"
+          }) : e.jsx("span", {
+           className: "muted",
+           style: {
+            fontSize: 12
+           },
+           children: "—"
+          })
+         })]
+        }, s)
+       }), p.length === 0 && e.jsx("tr", {
+        children: e.jsx("td", {
+         colSpan: 4,
+         children: e.jsx("div", {
+          className: "empty",
+          children: e.jsx("b", {
+           children: "No one in the warning band right now."
+          })
+         })
+        })
+       })]
+      })]
+     })
+    })
+   }), e.jsxs(x, {
+    title: "What the holder hears",
+    sub: "Short, plain and in their language. Read out by an AI voice; the reply is attached to the case.",
+    children: [e.jsx("div", {
+     className: "script",
+     children: v.map((s, t) => e.jsxs("p", {
+      children: [e.jsx("span", {
+       children: s
+      }), e.jsx("span", {
+       className: "tl-r",
+       children: I[t]
+      })]
+     }, t))
+    }), e.jsxs("p", {
+     className: "sec",
+     style: {
+      fontSize: 12.5,
+      marginTop: 10
+     },
+     children: [e.jsx("b", {
+      children: "English:"
+     }), " ", R]
+    }), e.jsxs("div", {
+     className: "note info",
+     children: ["In production the call goes from the bank's official number under the bank's policy (ElevenLabs voice agent + Twilio). Here it plays the recorded ElevenLabs file if ", e
+      .jsx("span", {
+       className: "mono",
+       children: "call-hi.mp3"
+      }), " is in the site, otherwise the browser's Hindi voice."
+     ]
+    })]
+   })]
+  }), i.length > 0 && e.jsx(x, {
+   title: "Call log",
+   style: {
+    marginTop: 18
+   },
+   bodyClass: "",
+   children: e.jsx("div", {
+    className: "tbl-wrap",
+    children: e.jsxs("table", {
+     className: "tbl",
+     children: [e.jsx("thead", {
+      children: e.jsxs("tr", {
+       children: [e.jsx("th", {
+        children: "Time"
+       }), e.jsx("th", {
+        children: "Holder"
+       }), e.jsx("th", {
+        children: "Reply"
+       }), e.jsx("th", {
+        children: "By"
+       })]
+      })
+     }), e.jsx("tbody", {
+      children: i.map(([s, t]) => e.jsxs("tr", {
+       children: [e.jsx("td", {
+        className: "mono",
+        children: y(t.at, m.clock)
+       }), e.jsx("td", {
+        children: e.jsx(H, {
+         id: s
+        })
+       }), e.jsxs("td", {
+        children: ["“", t.label, "”"]
+       }), e.jsx("td", {
+        children: t.by
+       })]
+      }, s))
+     })]
+    })
+   })
+  })]
+ })
+}
+export {
+ z as
+ default
+};

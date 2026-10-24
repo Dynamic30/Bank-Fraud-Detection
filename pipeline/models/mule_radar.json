@@ -1,0 +1,273 @@
+{
+  "version": "peecha-mule-rules-0.1",
+  "model_version": "rules-0.1",
+  "notes": "Behaviour-only scoring on the app DB. 'assumption' = our own judgement, tune on synthetic ground truth. All times UTC in tables; hour-of-day features use Asia/Kolkata.",
+  "global": {
+    "min_trace_amount_inr": {"value": 500, "source": "Peecha settings", "notes": "Transfers below this are ignored in ratio and fan features."},
+    "hold_min_amount_inr": {"value": 1000, "source": "RBI draft KYC Amendment Directions 2026 (suspected mule transaction = Rs 1000 and above)", "notes": "Holds only on traced suspect amounts at or above this."},
+    "golden_minutes": {"value": 60, "source": "Peecha settings; RUSI/Lloyds 2025 (about 53% of mule funds leave within 1h)"},
+    "timezone_for_hour_features": {"value": "Asia/Kolkata"},
+    "counterparty_newness_lookback_days": {"value": 180, "source": "assumption"},
+    "forbidden_inputs": {"value": ["accounts.label", "accounts.source", "mule_accounts where source='model'", "mule_truth file"], "notes": "Prevents ground-truth leakage and self-reinforcing feedback."},
+    "excluded_wallet_kinds": {"value": ["exchange_hot", "bridge", "mixer"], "source": "RBI draft and I4C SOP exclude nodal/pool/escrow accounts; analogous infrastructure", "notes": "Not scored; still traced as hops and used by R17."},
+    "eligibility": {"min_qualifying_transfers": 3, "require_synced_until_covers_window": true, "else": "insufficient_data", "source": "assumption"},
+    "as_of": {"value": "use only transfers with ts <= eval_ts", "notes": "Re-score on every new credit to an account already scoring >= 40."}
+  },
+  "families": {
+    "FLOW": {"cap": 35, "notes": "Correlated pass-through and velocity signals share one cap."},
+    "CASE": {"cap": 35, "source": "I4C SOP weight on 'reported multiple times'"},
+    "NETWORK": {"cap": 25},
+    "PROFILE": {"cap": 20},
+    "EXIT": {"cap": 20},
+    "STRUCT": {"cap": 10, "notes": "Weak signals."},
+    "MISC": {"cap": 6},
+    "NEG": {"cap": -30}
+  },
+  "rules": [
+    {
+      "id": "R01", "family": "FLOW", "name": "pass_through",
+      "feature": "pt_ratio_{15m,60m,24h}: FIFO allocation of debits to prior credits, over 7d of credits",
+      "preconditions": {"credits_sum_inr_gte": 10000, "credit_count_gte": 2},
+      "tiers": [
+        {"severity": "low", "condition": "pt_ratio_24h >= 0.80", "points": 10, "source": "RUSI/Lloyds 2025: under 15% remained after 24h; vendor rule 80% out in 48h"},
+        {"severity": "medium", "condition": "pt_ratio_60m >= 0.50", "points": 18, "source": "RUSI/Lloyds 2025: about 28% out in 15 min plus about 25% within 1h"},
+        {"severity": "high", "condition": "pt_ratio_15m >= 0.50", "points": 25, "source": "RUSI/Lloyds 2025; the 0.50 cut is assumption"}
+      ],
+      "reason": "{pct}% of Rs {in_amt} received was sent out within {window} (median hold {dwell} min)"
+    },
+    {
+      "id": "R02", "family": "FLOW", "name": "fan_in_strangers",
+      "feature": "fan_in_7d, new_sender_share_7d",
+      "tiers": [
+        {"severity": "medium", "condition": "fan_in_7d >= 8 AND new_sender_share_7d >= 0.7", "points": 6, "source": "vendor rule (8+ sources in 7d); 0.7 is assumption"},
+        {"severity": "high", "condition": "fan_in_7d >= 15 AND new_sender_share_7d >= 0.7", "points": 10, "source": "assumption"}
+      ],
+      "reason": "Received from {n} unrelated first-time senders in 7 days",
+      "notes": "Suppressed by N1 merchant pattern."
+    },
+    {
+      "id": "R03", "family": "FLOW", "name": "new_beneficiaries",
+      "feature": "new_benef_24h",
+      "tiers": [
+        {"severity": "medium", "condition": "new_benef_24h >= 5", "points": 6, "source": "assumption"},
+        {"severity": "high", "condition": "new_benef_24h >= 10", "points": 10, "source": "vendor rule (10+ new beneficiaries in 24h)"}
+      ],
+      "reason": "Paid {n} new beneficiaries within 24 h"
+    },
+    {
+      "id": "R04", "family": "FLOW", "name": "near_zero_balance",
+      "feature": "share of active days (30d) with eod_balance <= max(1000, 0.05 * day_credits)",
+      "requires_inputs": ["accounts.opening_balance"],
+      "tiers": [{"severity": "medium", "condition": "share >= 0.70 AND active_days >= 5", "points": 6, "source": "vendor typologies; numbers assumption"}],
+      "reason": "Balance returned to near zero on {k}/{n} active days",
+      "notes": "Disabled when opening_balance is NULL."
+    },
+    {
+      "id": "R05", "family": "FLOW", "name": "volume_burst",
+      "feature": "burst_ratio_24h = credits_24h / median_daily_credits_prior_90d (floor Rs 1000)",
+      "preconditions": {"history_days_gte": 90},
+      "tiers": [
+        {"severity": "medium", "condition": "burst_ratio_24h >= 10 AND credits_24h >= 50000", "points": 5, "source": "assumption"},
+        {"severity": "high", "condition": "burst_ratio_24h >= 30 AND credits_24h >= 50000", "points": 8, "source": "assumption"}
+      ],
+      "reason": "24 h inflow Rs {x} is {r}x this account's normal daily level"
+    },
+    {
+      "id": "R06", "family": "PROFILE", "name": "turnover_vs_declared_income",
+      "feature": "turnover_income_ratio_30d = credits_30d / (declared_income / 12)",
+      "preconditions": {"profile_fetched": true, "declared_income_gt": 0, "credits_30d_gte": 50000},
+      "tiers": [
+        {"severity": "medium", "condition": "ratio >= 3", "points": 8, "source": "RBI draft 2026 trigger 'disproportionate to declared profile'; FATF 2023; multiple is assumption"},
+        {"severity": "high", "condition": "ratio >= 10", "points": 15, "source": "same; multiple is assumption"}
+      ],
+      "reason": "Rs {x} received in 30 days vs declared income Rs {inc}/yr ({r}x monthly income)",
+      "notes": "declared_income is annual INR."
+    },
+    {
+      "id": "R07", "family": "PROFILE", "name": "occupation_mismatch",
+      "feature": "occupation_class in [student, unemployed, homemaker, daily_wage, labourer, retired]",
+      "preconditions": {"profile_fetched": true, "requires_family_points": {"FLOW": 10}},
+      "tiers": [{"severity": "medium", "condition": "credits_30d >= 100000", "points": 8, "source": "Europol EMMA; Delhi and Kashmir police cases; Rs 1 lakh is assumption"}],
+      "reason": "{occupation} account moved Rs {x} in 30 days",
+      "notes": "Age is context only (0 points) to avoid demographic scoring."
+    },
+    {
+      "id": "R08", "family": "PROFILE", "name": "new_account_high_volume",
+      "feature": "account_age_days, credits since opening, fan_in_7d",
+      "tiers": [
+        {"severity": "medium", "condition": "account_age_days <= 90 AND credits_total >= 50000", "points": 5, "source": "FATF 2023 (rapid high-value activity after opening); numbers assumption"},
+        {"severity": "high", "condition": "account_age_days <= 30 AND (credits_total >= 50000 OR fan_in_7d >= 8)", "points": 10, "source": "vendor rule (under 30 days, 8+ sources)"}
+      ],
+      "reason": "Account opened {d} days ago already received Rs {x}",
+      "notes": "Not a gate: about 60% of mule accounts in the RUSI/Lloyds sample were over a year old."
+    },
+    {
+      "id": "R09", "family": "PROFILE", "name": "dormant_reactivation",
+      "feature": "dormancy_gap_days before current burst; active for 180 days after reactivation",
+      "tiers": [
+        {"severity": "medium", "condition": "gap >= 365 AND credits_7d_after >= 25000", "points": 10, "source": "RBI inoperative-account rules (annual review); Rs 25,000 assumption"},
+        {"severity": "high", "condition": "gap >= 730 AND credits_7d_after >= 25000", "points": 14, "source": "RBI: inoperative after 2 years, 6 months monitoring after reactivation"}
+      ],
+      "reason": "Dormant {d} days, then Rs {x} moved within 7 days",
+      "notes": "Debits are the proxy for customer-induced transactions."
+    },
+    {
+      "id": "R10", "family": "NETWORK", "name": "shared_device",
+      "feature": "device_degree = distinct accounts sharing a device_id (accounts.device_id and transfers.device_id on debits)",
+      "preconditions": {"profile_fetched": true},
+      "tiers": [
+        {"severity": "medium", "condition": "device_degree >= 3", "points": 10, "source": "GEM (Alipay, CIKM 2018) device aggregation; 3 is assumption"},
+        {"severity": "high", "condition": "device_degree >= 10", "points": 18, "source": "BioCatch India 2024: mule devices averaged 35 accounts; 10 is conservative assumption"}
+      ],
+      "reason": "Device {dev} is used by {n} accounts"
+    },
+    {
+      "id": "R11", "family": "NETWORK", "name": "device_shared_with_confirmed_mule",
+      "tiers": [{"severity": "high", "condition": "shares device_id with account where mule_accounts.status='confirmed' AND source IN ('complaint','bank_report')", "points": 15, "source": "RBI draft 2026 trigger 'linkage to an account already reported as money mule'"}],
+      "reason": "Shares device with confirmed mule account {id}"
+    },
+    {
+      "id": "R12", "family": "NETWORK", "name": "new_device_debits",
+      "tiers": [{"severity": "medium", "condition": "device_switch_24h >= 2 AND debits_24h >= 10000", "points": 8, "source": "FATF 2023 device anomalies; account-takeover rule; numbers assumption"}],
+      "reason": "Debits from {n} unfamiliar devices in 24 h"
+    },
+    {
+      "id": "R13", "family": "NETWORK", "name": "flow_with_confirmed_mules",
+      "tiers": [{"severity": "medium", "condition": "transfers_with_confirmed_mules >= 2 AND amount >= 5000 (30d)", "points": 8, "source": "RBI draft 2026 linkage trigger; numbers assumption"}],
+      "reason": "Exchanged Rs {x} with {n} confirmed mule accounts"
+    },
+    {
+      "id": "R14", "family": "CASE", "name": "victim_trail_appearances",
+      "feature": "complaint_count = distinct complaint_id in account_cases with received >= 500",
+      "tiers": [
+        {"severity": "low", "condition": "complaint_count = 1", "points": 12, "source": "assumption"},
+        {"severity": "medium", "condition": "complaint_count = 2", "points": 22, "source": "I4C NCRP-CFCFRMS SOP: 'reported multiple times' leads to suspension of digital banking"},
+        {"severity": "high", "condition": "complaint_count >= 3", "points": 30, "source": "same; Delhi case: 37 accounts / 99 complaints"}
+      ],
+      "reason": "Appears in {n} separate victims' money trails ({complaint_ids})"
+    },
+    {
+      "id": "R15", "family": "CASE", "name": "first_layer_recipient",
+      "tiers": [{"severity": "medium", "condition": "first_hop_min = 1 AND complaint_count >= 1", "points": 5, "source": "I4C Suspect Registry focus on Layer-1 mule accounts"}],
+      "reason": "Received victim money directly (layer 1)"
+    },
+    {
+      "id": "R16", "family": "EXIT", "name": "crypto_p2p_exchange_exit",
+      "feature": "crypto_exit_share_30d = debits to wallet_kind p2p_seller/exchange_deposit, or to bank accounts with p2p_wallet, divided by all debits",
+      "preconditions": {"requires_any_family_points": ["FLOW", "CASE"]},
+      "tiers": [
+        {"severity": "medium", "condition": "share >= 0.3", "points": 8, "source": "FATF 2023 (P2P virtual-asset activity); Delhi/Mangaluru USDT cases; 0.3 assumption"},
+        {"severity": "high", "condition": "share >= 0.5", "points": 12, "source": "same; 0.5 assumption"}
+      ],
+      "reason": "{pct}% of outflows went to crypto P2P sellers/exchange deposits",
+      "notes": "Genuine P2P traders exist; never hold on this rule alone."
+    },
+    {
+      "id": "R17", "family": "EXIT", "name": "mixer_bridge_touch",
+      "tiers": [{"severity": "high", "condition": "any USDT transfer from account to wallet_kind IN (mixer, bridge) within 30d", "points": 15, "source": "FATF 2020 virtual asset red flag indicators (mixing)"}],
+      "reason": "Funds routed to {kind} {addr}"
+    },
+    {
+      "id": "R18", "family": "EXIT", "name": "atm_soon_after_credit",
+      "tiers": [{"severity": "medium", "condition": "ATM debit (to_id NULL) >= 50% of a credit >= 5000 within 60 min", "points": 10, "source": "RUSI 2025 (10% of mule funds cashed out at ATM or branch); I4C SOP ATM ID capture; numbers assumption"}],
+      "reason": "Rs {x} withdrawn at ATM {mins} min after credit",
+      "notes": "Multi-city ATM rule disabled: transfers has no ATM location."
+    },
+    {
+      "id": "R19", "family": "EXIT", "name": "mixed_rails_out",
+      "tiers": [{"severity": "low", "condition": "rails_out_24h >= 3 after a credit", "points": 4, "source": "assumption"}],
+      "reason": "Outflows split across {rails}"
+    },
+    {
+      "id": "R20", "family": "STRUCT", "name": "consolidation",
+      "tiers": [{"severity": "medium", "condition": ">= 5 credits each < 10000 then one debit >= 80% of their sum within 24h", "points": 8, "source": "BioCatch India (mule-as-a-service consolidation); numbers assumption"}],
+      "reason": "{n} small credits combined into one Rs {x} payout"
+    },
+    {
+      "id": "R21", "family": "STRUCT", "name": "round_amounts",
+      "tiers": [{"severity": "low", "condition": "round_share >= 0.7 AND n_credits >= 5", "points": 3, "source": "vendor typologies (weak); numbers assumption"}],
+      "reason": "{pct}% of credits are round thousands"
+    },
+    {
+      "id": "R22", "family": "STRUCT", "name": "just_below_rbi_floor",
+      "tiers": [{"severity": "low", "condition": "sub_floor_share (amounts 900-999) >= 0.5 AND n >= 5", "points": 4, "source": "Dvara Research comments on RBI draft; numbers assumption"}],
+      "reason": "Repeated amounts just below Rs 1,000"
+    },
+    {
+      "id": "R23", "family": "MISC", "name": "night_activity",
+      "tiers": [{"severity": "low", "condition": "night_share (00-05 IST) >= 0.5 AND n >= 10", "points": 3, "source": "vendor typology; assumption"}],
+      "reason": "{pct}% of activity between 00:00-05:00 IST"
+    },
+    {
+      "id": "R24", "family": "MISC", "name": "failed_bursts",
+      "tiers": [{"severity": "low", "condition": "failed_count_24h >= 5", "points": 3, "source": "FATF 2023 (failed attempts, automation); number assumption"}],
+      "reason": "{n} failed transfers in 24 h"
+    },
+    {
+      "id": "N1", "family": "NEG", "name": "merchant_like",
+      "tiers": [{"condition": "account_age_days >= 180 AND credit_active_days_30d >= 20 AND median_credit_ticket <= 2000 AND repeat_payer_share_90d >= 0.3 AND top1_dest_share_30d >= 0.6 AND median_settle_lag_h >= 12", "points": -15, "source": "assumption; Andhra Pradesh HC 2026 (merchants not to be frozen merely for receiving fraud UPI payments)"}],
+      "not_if": "CASE >= 22",
+      "reason": "Pattern consistent with a retail merchant (regular small receipts, daily settlement)"
+    },
+    {
+      "id": "N2", "family": "NEG", "name": "salary_like",
+      "tiers": [{"condition": ">= 3 monthly credits from the same payer, day +-3, amount CV < 0.10 (120d)", "points": -8, "source": "assumption"}],
+      "reason": "Regular monthly salary-like credits from {payer}"
+    },
+    {
+      "id": "N3", "family": "NEG", "name": "long_stable_history",
+      "tiers": [{"condition": "account_age_days >= 730 AND credits_30d <= 3 * avg_monthly_credits_prior_12m", "points": -10, "source": "assumption"}],
+      "reason": "Long-standing account with consistent volumes"
+    },
+    {
+      "id": "N4", "family": "NEG", "name": "balance_retention",
+      "requires_inputs": ["accounts.opening_balance"],
+      "tiers": [{"condition": "median_eod_balance_30d >= 0.30 * credits_30d", "points": -8, "source": "assumption (inverse of pass-through)"}],
+      "reason": "Account retains funds (median balance Rs {b})"
+    },
+    {
+      "id": "N5", "family": "NEG", "name": "recently_cleared",
+      "tiers": [{"condition": "mule_accounts.status = 'cleared' within 90d AND no new complaint since", "points": -20, "source": "assumption (cool-off)"}],
+      "reason": "Cleared by analyst on {date}; no new complaints since"
+    }
+  ],
+  "combination": {
+    "method": "sum of per-family capped points plus capped negatives, clamp 0-100; within a rule only the highest tier counts",
+    "single_rule_max_points": {"value": 30, "source": "FATF 2023 / FinCEN: a single indicator is not sufficient"},
+    "gates": [
+      {"tier": "call", "min_score": 40, "requires": "positive_families >= 2", "else_cap": 39, "source": "FATF 2023; family count is assumption"},
+      {"tier": "hold", "min_score": 70, "requires": "positive_families >= 3 OR (CASE >= 22 AND FLOW >= 10)", "else_cap": 69, "source": "RBI draft 2026 (objective parameters, minimise flagging genuine accounts); counts are assumption"}
+    ],
+    "floors": [
+      {"id": "F1", "condition": "complaint_count >= 3 AND each case_received >= 1000 AND NOT N1", "min_score": 70, "source": "I4C NCRP-CFCFRMS SOP ('reported multiple times')"}
+    ],
+    "stub_accounts": {
+      "condition": "accounts.fetched_at IS NULL",
+      "run_families": ["FLOW", "CASE", "EXIT", "STRUCT", "MISC"],
+      "also_run": ["R13"],
+      "score_cap": 69,
+      "cap_lifted_if": "complaint_count >= 2",
+      "confidence": "low",
+      "reason": "Profile not pulled - score from money-trail behaviour only",
+      "source": "assumption"
+    },
+    "confidence": {
+      "high": "profile fetched AND positive_families >= 3 AND history_days >= 30",
+      "medium": "positive_families >= 2",
+      "low": "stub OR history_days < 7",
+      "source": "assumption"
+    }
+  },
+  "tiers_to_actions": [
+    {"range": [0, 39], "tier": "normal", "action": "none"},
+    {"range": [40, 69], "tier": "watch_call", "action": "prevention_call", "source": "Peecha settings call_from_score"},
+    {"range": [70, 100], "tier": "hold_candidate", "action": "temporary_debit_hold_24h_on_traced_amount", "min_amount_inr": 1000, "notify_holder": "immediately, with reason text", "source": "Peecha settings hold_threshold; RBI draft 2026 (amount-level hold, Rs 1000 floor, immediate notice); Rajasthan HC Aug 2026 (lien on disputed amount)"},
+    {"tier": "freeze", "action": "officer_confirmed_freeze", "requires": "complaint/FIR linkage + LEA instruction; record BNSS s.106/s.107 basis", "source": "Bombay HC Dec 2025, Delhi HC Jan 2026 (s.107 order needed); Karnataka HC Aug 2026 contra, law unsettled"}
+  ],
+  "output": {
+    "account_scores.reasons": "array of {rule_id, family, severity, points, reason_text, evidence: {transfer_ids, complaint_ids, device_id}}",
+    "mule_accounts.source": "model",
+    "mule_accounts.status": "suspected",
+    "mule_accounts.confidence": "from combination.confidence"
+  }
+}

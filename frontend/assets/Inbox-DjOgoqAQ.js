@@ -1,1 +1,349 @@
-import{u as R,j as e,P as W,I as x,K as d,i as c,C as b,g as $,c as A,w as y,a as N,d as T,b as f,M as k,r as w,h as C,B as I,S as B}from"./index-DAvlYmAS.js";function O(){const s=R(),{D:t,S:o,can:i}=s,g=t.W,u=!!o.fired.complaint,S=t.order.map(n=>t.states[n].tot),p=n=>S.reduce((l,a)=>l+a[n],0),h=t.order[0];return e.jsxs(e.Fragment,{children:[e.jsx(W,{title:"Case inbox",desc:"Complaints and bank alerts in one queue, ranked by golden-hour priority: money that can still be stopped comes first. Every case is traced the moment it arrives.",sources:["NCRP / 1930","Bank alerts","TRON listener"],actions:e.jsxs(e.Fragment,{children:[!u&&i("events")&&e.jsxs("button",{className:"btn accent glow",id:"btn-complaint",onClick:s.ingestComplaint,children:[e.jsx(x,{name:"zap",size:15}),"Simulate incoming 1930 complaint"]}),u&&i("events")&&e.jsxs("button",{className:"btn accent",onClick:s.newComplaint,children:[e.jsx(x,{name:"zap",size:15}),"New complaint (random scam)"]}),i("events")&&e.jsxs("button",{className:"btn ghost",onClick:s.retrace,children:[e.jsx(x,{name:"refresh",size:15}),"Run scheduled re-trace (+",s.settings.step," min)"]}),i("events")&&e.jsxs("button",{className:"btn ghost",onClick:()=>s.open("import","csv"),children:[e.jsx(x,{name:"download",size:15,style:{transform:"rotate(180deg)"}}),"Import CSV"]}),!i("events")&&e.jsx("span",{className:"muted",style:{fontSize:12.5},children:"Read-only role · ingest and re-trace need an officer or analyst"})]})}),e.jsxs("div",{className:"kpis",children:[e.jsx(d,{label:"Open complaints",value:t.cases.length,sub:`${t.alerts.length} bank alerts on top`,onClick:()=>s.go("accounts")}),e.jsx(d,{label:"Recoverable right now",value:c(p("recoverable")),tone:"rec",sub:"in bank accounts + exchange deposits"}),e.jsx(d,{label:"Secured (held / frozen)",value:c(p("secured")),tone:"rec",sub:"by approved actions"}),e.jsx(d,{label:"In private crypto wallets",value:c(p("wallet")),tone:"crypto",sub:"trackable, not yet freezable"}),e.jsx(d,{label:"Already gone",value:c(p("gone")),tone:"exit",sub:"ATM cash + bridge / mixer"}),e.jsx(d,{label:"Full re-trace",value:`${t.ms.toFixed(0)} ms`,sub:`${t.txCount.toLocaleString("en-IN")} transactions, FIFO`})]}),!u&&e.jsxs("section",{className:"card incoming",style:{marginTop:18},children:[e.jsx("div",{className:"incoming-ico",children:e.jsx(x,{name:"phone",size:22})}),e.jsxs("div",{style:{flex:1,minWidth:220},children:[e.jsx("div",{className:"serif",style:{fontSize:18,fontWeight:700},children:"Waiting for the next complaint…"}),e.jsx("div",{className:"sec",style:{fontSize:13.5,marginTop:4},children:"Money is already moving in the background: a student account in Guwahati received ₹2 lakh at 13:02 and passed most of it on within 40 minutes. The bank's own alert has fired (see right), but nobody has linked it to a victim yet."})]}),i("events")&&e.jsx("button",{className:"btn accent",onClick:s.ingestComplaint,children:"Ingest 1930 complaint now"})]}),e.jsx("div",{style:{marginTop:18},children:e.jsx(b,{title:"Golden-hour board",sub:"Rank = money not yet secured × freshness. Open a case to see the live trail.",bodyClass:"",children:e.jsx("div",{className:"tbl-wrap",children:e.jsxs("table",{className:"tbl",children:[e.jsx("thead",{children:e.jsxs("tr",{children:[e.jsx("th",{children:"#"}),e.jsx("th",{children:"Case"}),e.jsx("th",{children:"Lost"}),e.jsx("th",{children:"Where the money is"}),e.jsx("th",{children:"Can still stop"}),e.jsx("th",{children:"Status"})]})}),e.jsx("tbody",{children:t.order.map((n,l)=>{const a=t.cases.find(z=>z.id===n),r=t.states[n].tot,m=$(a,o.clock),v=A(s,n),j=g.accounts[a.victim];return e.jsxs("tr",{className:`click ${a.demo&&u?"changed":""}`,...w(()=>s.openCase(n)),children:[e.jsx("td",{className:"mono",style:{fontWeight:700,color:l===0?"var(--accent-ink)":void 0},children:l+1}),e.jsxs("td",{children:[e.jsxs("div",{className:"cell-main",children:[e.jsx("span",{className:"mono",children:n})," · ",a.type]}),e.jsxs("div",{className:"cell-sub",children:[j.name,", ",j.ageY," · ",j.city," · reported ",y(a.reportedAt,o.clock)]}),e.jsx("div",{style:{marginTop:5},children:e.jsx(N,{tone:m.tone==="accent"?"accent":m.tone,children:m.k==="golden"?`⏱ ${m.text} · ${T(o.clock-a.fraudAt)} since fraud`:m.text})})]}),e.jsx("td",{className:"nowrap",children:f(a.amount)}),e.jsxs("td",{style:{minWidth:170},children:[e.jsx(k,{tot:r,legend:!1,height:10}),e.jsxs("div",{className:"cell-sub",children:[c(r.secured)," secured · ",c(r.gone)," gone"]})]}),e.jsxs("td",{className:"nowrap",children:[e.jsx("b",{className:"c-rec",children:c(r.recoverable-r.secured)}),e.jsxs("div",{className:"cell-sub",children:["+ ",c(r.wallet)," in crypto"]})]}),e.jsx("td",{children:e.jsx(N,{tone:v.tone,children:v.label})})]},n)})})]})})})}),e.jsxs("div",{className:"grid g-2",children:[h?e.jsxs(b,{title:`Right now: ${h}`,sub:`Where ${f(t.states[h].tot.stolen)} of complaint money sits at ${C(o.clock)} — green can still be stopped.`,right:e.jsx("button",{className:"btn sm",onClick:()=>s.openCase(h),children:"Open trail →"}),children:[e.jsx(k,{tot:t.states[h].tot,height:16}),s.lastRetrace&&e.jsxs("div",{className:`note ${s.lastRetrace.blocked?"ok":"change"}`,children:[e.jsxs("b",{children:["Last re-trace ",C(s.lastRetrace.at),":"]})," ",s.lastRetrace.parts.length?s.lastRetrace.parts.join(" · "):"no new movement on open cases."]})]}):e.jsx("span",{}),e.jsxs(b,{title:"Bank monitoring alerts",sub:`Accounts scoring ≥ ${s.settings.holdThr} that no complaint has explained yet — most recent activity first.`,bodyClass:"card-body",right:e.jsx("button",{className:"link-btn",onClick:()=>s.go("accounts"),children:"All accounts →"}),children:[t.alerts.slice(0,7).map(n=>{const l=g.accounts[n],a=t.scores[n];return e.jsxs("div",{className:"alert-row",...w(()=>s.open("account",n)),children:[e.jsxs("div",{style:{minWidth:0,flex:1},children:[e.jsxs("div",{className:"cell-main",children:[l.name," ",e.jsxs("span",{className:"muted",style:{fontWeight:400},children:["· ",l.occ,", ",I[l.bank]]})]}),e.jsx("div",{className:"cell-sub",style:{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"},children:a.reasons[0]})]}),e.jsxs("div",{style:{textAlign:"right"},children:[e.jsx(B,{score:a.score}),e.jsx("div",{className:"cell-sub",children:y(t.behaviour.stats[n].lastT,o.clock)})]})]},n)}),e.jsxs("div",{className:"note info",style:{fontSize:12.5},children:["Alerts become cases when a complaint's money is traced into them. ",t.candidates.length," newer accounts in the warning band are queued for a ",e.jsx("button",{className:"link-chip",onClick:()=>s.go("prevent"),children:"Hindi prevention call"}),"."]})]})]}),e.jsx("p",{className:"muted",style:{fontSize:12,marginTop:14},children:"All accounts, people, wallets and complaints are synthetic. No real customer data is used. Bank names appear only to make the demo readable."})]})}export{O as default};
+import {
+ FiledList as FL
+} from "./Roles-p1a7k2.js";
+import {
+ u as R,
+ j as e,
+ P as W,
+ I as x,
+ K as d,
+ i as c,
+ C as b,
+ g as $,
+ c as A,
+ w as y,
+ a as N,
+ d as T,
+ b as f,
+ M as k,
+ r as w,
+ h as C,
+ B as I,
+ S as B
+} from "./index-DAvlYmAS.js";
+
+function O() {
+ const s = R(),
+  {
+   D: t,
+   S: o,
+   can: i
+  } = s,
+  g = t.W,
+  u = !!o.fired.complaint,
+  S = t.order.map(n => t.states[n].tot),
+  p = n => S.reduce((l, a) => l + a[n], 0),
+  h = t.order[0];
+ return e.jsxs(e.Fragment, {
+  children: [e.jsx(W, {
+   title: "Case inbox",
+   desc: "Complaints and bank alerts in one queue, ranked by golden-hour priority: money that can still be stopped comes first. Every case is traced the moment it arrives.",
+   sources: ["NCRP / 1930", "Bank alerts", "TRON listener"],
+   actions: e.jsxs(e.Fragment, {
+    children: [i("file") && e.jsx("button", {
+     className: "btn",
+     onClick: () => s.open("file"),
+     children: "＋ File a complaint"
+    }), !u && i("events") && e.jsxs("button", {
+     className: "btn accent glow",
+     id: "btn-complaint",
+     onClick: s.ingestComplaint,
+     children: [e.jsx(x, {
+      name: "zap",
+      size: 15
+     }), "Simulate incoming 1930 complaint"]
+    }), u && i("events") && e.jsxs("button", {
+     className: "btn accent",
+     onClick: s.newComplaint,
+     children: [e.jsx(x, {
+      name: "zap",
+      size: 15
+     }), "New complaint (random scam)"]
+    }), i("events") && e.jsxs("button", {
+     className: "btn ghost",
+     onClick: s.retrace,
+     children: [e.jsx(x, {
+      name: "refresh",
+      size: 15
+     }), "Run scheduled re-trace (+", s.settings.step, " min)"]
+    }), i("events") && e.jsxs("button", {
+     className: "btn ghost",
+     onClick: () => s.open("import", "csv"),
+     children: [e.jsx(x, {
+      name: "download",
+      size: 15,
+      style: {
+       transform: "rotate(180deg)"
+      }
+     }), "Import CSV"]
+    }), !i("events") && e.jsx("span", {
+     className: "muted",
+     style: {
+      fontSize: 12.5
+     },
+     children: "Read-only role · ingest and re-trace need an officer or analyst"
+    })]
+   })
+  }), e.jsxs("div", {
+   className: "kpis",
+   children: [e.jsx(d, {
+    label: "Open complaints",
+    value: t.cases.length,
+    sub: `${t.alerts.length} bank alerts on top`,
+    onClick: () => s.go("accounts")
+   }), e.jsx(d, {
+    label: "Recoverable right now",
+    value: c(p("recoverable")),
+    tone: "rec",
+    sub: "in bank accounts + exchange deposits"
+   }), e.jsx(d, {
+    label: "Secured (held / frozen)",
+    value: c(p("secured")),
+    tone: "rec",
+    sub: "by approved actions"
+   }), e.jsx(d, {
+    label: "In private crypto wallets",
+    value: c(p("wallet")),
+    tone: "crypto",
+    sub: "trackable, not yet freezable"
+   }), e.jsx(d, {
+    label: "Already gone",
+    value: c(p("gone")),
+    tone: "exit",
+    sub: "ATM cash + bridge / mixer"
+   }), e.jsx(d, {
+    label: "Full re-trace",
+    value: `${t.ms.toFixed(0)} ms`,
+    sub: `${t.txCount.toLocaleString("en-IN")} transactions, FIFO`
+   })]
+  }), !u && i("events") && e.jsxs("section", {
+   className: "card incoming",
+   style: {
+    marginTop: 18
+   },
+   children: [e.jsx("div", {
+    className: "incoming-ico",
+    children: e.jsx(x, {
+     name: "phone",
+     size: 22
+    })
+   }), e.jsxs("div", {
+    style: {
+     flex: 1,
+     minWidth: 220
+    },
+    children: [e.jsx("div", {
+     className: "serif",
+     style: {
+      fontSize: 18,
+      fontWeight: 700
+     },
+     children: "Waiting for the next complaint…"
+    }), e.jsx("div", {
+     className: "sec",
+     style: {
+      fontSize: 13.5,
+      marginTop: 4
+     },
+     children: "Money is already moving in the background: a student account in Guwahati received ₹2 lakh at 13:02 and passed most of it on within 40 minutes. The bank's own alert has fired (see right), but nobody has linked it to a victim yet."
+    })]
+   }), i("events") && e.jsx("button", {
+    className: "btn accent",
+    onClick: s.ingestComplaint,
+    children: "Ingest 1930 complaint now"
+   })]
+  }), e.jsx(FL, {}), e.jsx("div", {
+   style: {
+    marginTop: 18
+   },
+   children: e.jsx(b, {
+    title: "Golden-hour board",
+    sub: "Rank = money not yet secured × freshness. Open a case to see the live trail.",
+    bodyClass: "",
+    children: e.jsx("div", {
+     className: "tbl-wrap",
+     children: e.jsxs("table", {
+      className: "tbl",
+      children: [e.jsx("thead", {
+       children: e.jsxs("tr", {
+        children: [e.jsx("th", {
+         children: "#"
+        }), e.jsx("th", {
+         children: "Case"
+        }), e.jsx("th", {
+         children: "Lost"
+        }), e.jsx("th", {
+         children: "Where the money is"
+        }), e.jsx("th", {
+         children: "Can still stop"
+        }), e.jsx("th", {
+         children: "Status"
+        })]
+       })
+      }), e.jsx("tbody", {
+       children: t.order.map((n, l) => {
+        const a = t.cases.find(z => z.id === n),
+         r = t.states[n].tot,
+         m = $(a, o.clock),
+         v = A(s, n),
+         j = g.accounts[a.victim];
+        return e.jsxs("tr", {
+         className: `click ${a.demo&&u?"changed":""}`,
+         ...w(() => s.openCase(n)),
+         children: [e.jsx("td", {
+          className: "mono",
+          style: {
+           fontWeight: 700,
+           color: l === 0 ? "var(--accent-ink)" : void 0
+          },
+          children: l + 1
+         }), e.jsxs("td", {
+          children: [e.jsxs("div", {
+           className: "cell-main",
+           children: [e.jsx("span", {
+            className: "mono",
+            children: n
+           }), " · ", a.type]
+          }), e.jsxs("div", {
+           className: "cell-sub",
+           children: [j.name, j.masked ? "" : [", ", j.ageY, " · ", j.city], " · reported ", y(a.reportedAt, o.clock)]
+          }), e.jsx("div", {
+           style: {
+            marginTop: 5
+           },
+           children: e.jsx(N, {
+            tone: m.tone === "accent" ? "accent" : m.tone,
+            children: m.k === "golden" ? `⏱ ${m.text} · ${T(o.clock-a.fraudAt)} since fraud` : m.text
+           })
+          })]
+         }), e.jsx("td", {
+          className: "nowrap",
+          children: f(a.amount)
+         }), e.jsxs("td", {
+          style: {
+           minWidth: 170
+          },
+          children: [e.jsx(k, {
+           tot: r,
+           legend: !1,
+           height: 10
+          }), e.jsxs("div", {
+           className: "cell-sub",
+           children: [c(r.secured), " secured · ", c(r.gone), " gone"]
+          })]
+         }), e.jsxs("td", {
+          className: "nowrap",
+          children: [e.jsx("b", {
+           className: "c-rec",
+           children: c(r.recoverable - r.secured)
+          }), e.jsxs("div", {
+           className: "cell-sub",
+           children: ["+ ", c(r.wallet), " in crypto"]
+          })]
+         }), e.jsx("td", {
+          children: e.jsx(N, {
+           tone: v.tone,
+           children: v.label
+          })
+         })]
+        }, n)
+       })
+      })]
+     })
+    })
+   })
+  }), e.jsxs("div", {
+   className: "grid g-2",
+   children: [h ? e.jsxs(b, {
+    title: `Right now: ${h}`,
+    sub: `Where ${f(t.states[h].tot.stolen)} of complaint money sits at ${C(o.clock)} — green can still be stopped.`,
+    right: e.jsx("button", {
+     className: "btn sm",
+     onClick: () => s.openCase(h),
+     children: "Open trail →"
+    }),
+    children: [e.jsx(k, {
+     tot: t.states[h].tot,
+     height: 16
+    }), s.lastRetrace && e.jsxs("div", {
+     className: `note ${s.lastRetrace.blocked?"ok":"change"}`,
+     children: [e.jsxs("b", {
+      children: ["Last re-trace ", C(s.lastRetrace.at), ":"]
+     }), " ", s.lastRetrace.parts.length ? s.lastRetrace.parts.join(" · ") : "no new movement on open cases."]
+    })]
+   }) : e.jsx("span", {}), e.jsxs(b, {
+    title: "Bank monitoring alerts",
+    sub: `Accounts scoring ≥ ${s.settings.holdThr} that no complaint has explained yet — most recent activity first.`,
+    bodyClass: "card-body",
+    right: e.jsx("button", {
+     className: "link-btn",
+     onClick: () => s.go("accounts"),
+     children: "All accounts →"
+    }),
+    children: [t.alerts.slice(0, 7).map(n => {
+     const l = g.accounts[n],
+      a = t.scores[n];
+     return e.jsxs("div", {
+      className: "alert-row",
+      ...w(() => s.open("account", n)),
+      children: [e.jsxs("div", {
+       style: {
+        minWidth: 0,
+        flex: 1
+       },
+       children: [e.jsxs("div", {
+        className: "cell-main",
+        children: [l.name, " ", e.jsxs("span", {
+         className: "muted",
+         style: {
+          fontWeight: 400
+         },
+         children: ["· ", l.occ, ", ", I[l.bank]]
+        })]
+       }), e.jsx("div", {
+        className: "cell-sub",
+        style: {
+         whiteSpace: "nowrap",
+         overflow: "hidden",
+         textOverflow: "ellipsis"
+        },
+        children: a.reasons[0]
+       })]
+      }), e.jsxs("div", {
+       style: {
+        textAlign: "right"
+       },
+       children: [e.jsx(B, {
+        score: a.score
+       }), e.jsx("div", {
+        className: "cell-sub",
+        children: y(t.behaviour.stats[n].lastT, o.clock)
+       })]
+      })]
+     }, n)
+    }), e.jsxs("div", {
+     className: "note info",
+     style: {
+      fontSize: 12.5
+     },
+     children: ["Alerts become cases when a complaint's money is traced into them. ", t.candidates.length, " newer accounts in the warning band are queued for a ", e.jsx("button", {
+      className: "link-chip",
+      onClick: () => s.go("prevent"),
+      children: "Hindi prevention call"
+     }), "."]
+    })]
+   })]
+  }), e.jsx("p", {
+   className: "muted",
+   style: {
+    fontSize: 12,
+    marginTop: 14
+   },
+   children: "All accounts, people, wallets and complaints are synthetic. No real customer data is used. Bank names appear only to make the demo readable."
+  })]
+ })
+}
+export {
+ O as
+ default
+};

@@ -1,5 +1,18 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>Peecha (Copy)</title>
+<title>Peecha</title>
+<script>
+/* Peecha bridge to the Claude artifact runtime: live Claude (sample) + file saving (downloads). Absent = graceful fallback. */
+window.PeechaRT=(function(){
+ var has=function(){return typeof window.claude!=="undefined"&&window.claude&&typeof window.claude.use==="function"};
+ var sp=null,dp=null,off=false;
+ function sample(){if(off)return Promise.resolve(null);if(!sp)sp=has()?window.claude.use("sample").catch(function(){return null}):Promise.resolve(null);return sp}
+ function downloads(){if(!dp)dp=has()?window.claude.use("downloads").catch(function(){return null}):Promise.resolve(null);return dp}
+ function anchor(name,data,type){var b=new Blob([data],{type:type||"text/plain"}),u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},1000)}
+ function save(name,data,type){return downloads().then(function(d){if(!d){anchor(name,data,type);return "anchor"}return d.save({filename:name,data:new Blob([data],{type:type||"text/plain"})}).then(function(){return "saved"},function(e){return e&&e.code==="declined"?"declined":(anchor(name,data,type),"anchor")})})}
+ return {sample:sample,save:save,disableAI:function(){off=true}};
+})();
+</script>
+
 <meta name="description" content="Peecha — follows cyber-fraud money from mule accounts to the crypto exit. Hackyard Build 2026 prototype on synthetic data.">
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="./assets/index-fiZ0hwOl.css">
