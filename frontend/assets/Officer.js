@@ -333,22 +333,18 @@ function Trail() {
  const e = useApp(),
   items = API.get().items;
  const [id, setId] = R.useState(API.pick.case && items.some(i => i.c.id === API.pick.case) ? API.pick.case : items.length ? items[0].c.id : "");
- const [method, setMethod] = R.useState("fifo");
+ const [method] = R.useState("fifo"); // the tracer only follows FIFO, so there is nothing to choose
  const it = items.find(i => i.c.id === id);
  const st = useGet(id ? `/complaints/${id}/trail?method=${method}` : null, [id, method]);
  const rows = id && st.data ? st.data : [];
  const first = rows.length ? Math.min(...rows.map(r => r.hop)) : 0,
   traced = rows.filter(r => r.hop === first).reduce((s, r) => s + Number(r.traced_amount), 0);
  return h(R.Fragment, null,
-  h(PageHead, { title: "Money trail", desc: "Where the victim's money went, hop by hop. FIFO, LIFO and pro-rata are three ways of attributing it." }),
+  h(PageHead, { title: "Money trail", desc: "Where the victim's money went, hop by hop." }),
   items.length === 0 ? h(Card, {}, Empty("No complaints yet.", "File or receive a complaint to see its trail.")) : h(R.Fragment, null,
    h("div", { className: "btn-row" },
     h("select", { className: "input", value: id, onChange: ev => { API.pick.case = ev.target.value; setId(ev.target.value) } },
-     items.map(i => h("option", { key: i.c.id, value: i.c.id }, `${i.c.id} · ${i.c.scam_type} · ${money(i.c.total_lost)}`))),
-    ["fifo", "lifo", "prorata"].map(m => h("button", {
-     key: m, className: "btn sm " + (m === method ? "" : "ghost"), disabled: !COMPUTED.includes(m),
-     title: COMPUTED.includes(m) ? "" : "Not computed yet: the tracer only follows FIFO", onClick: () => setMethod(m)
-    }, m.toUpperCase()))),
+     items.map(i => h("option", { key: i.c.id, value: i.c.id }, `${i.c.id} · ${i.c.scam_type} · ${money(i.c.total_lost)}`)))),
    it && h(TraceNote, { it }),
    it && h("div", { className: "kpis", style: { marginTop: 14 } },
     h(Kpi, { label: "Amount lost", value: money(it.c.total_lost) }),
