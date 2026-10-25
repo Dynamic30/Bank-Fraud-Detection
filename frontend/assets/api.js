@@ -131,6 +131,18 @@
     return call("POST", "/complaints", body).then(function (r) { return refresh().then(function () { return r; }); });
   }
 
+  // a new complaint is traced in the background: keep refreshing until its first trace has finished (10 min cap)
+  function awaitingTrace() {
+    var cutoff = Date.now() - 10 * 60 * 1000;
+    return state.items.some(function (i) {
+      var c = i.c, at = Date.parse(/Z|[+-]\d\d:?\d\d$/.test(c.reported_at) ? c.reported_at : c.reported_at + "Z");
+      return (c.status === "open" || c.status === "tracing") && !c.last_traced_at && at > cutoff;
+    });
+  }
+  setInterval(function () {
+    if (state.status === "live" && !document.hidden && awaitingTrace()) refresh();
+  }, 15000);
+
   window.PeechaAPI = {
     get: function () { return state; },
     subscribe: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (x) { return x !== fn; }); }; },
