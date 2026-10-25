@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import auth, db, jobs
-from .routers import accounts, actions, ask, audit, banks, calls, complaints, holds, mules, settings, tron
+from .routers import accounts, actions, ask, audit, banks, calls, complaints, holds, mules, settings, stats, tron
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 
@@ -34,7 +34,7 @@ def health():
 
 
 app.include_router(auth.router, prefix="/api")
-for module in (complaints, accounts, mules, holds, actions, calls, audit, settings, banks, ask, tron):
+for module in (complaints, accounts, mules, holds, actions, calls, audit, settings, banks, ask, stats, tron):
     app.include_router(module.router, prefix="/api", dependencies=[Depends(auth.current_user)])
 
 class RevalidatingStaticFiles(StaticFiles):

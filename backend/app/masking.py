@@ -23,6 +23,7 @@ ACCESS = {
     "calls": STAFF,
     "audit": STAFF,
     "settings": STAFF,
+    "stats": STAFF,
 }
 
 WALLET_PREFIX = "TRON"
