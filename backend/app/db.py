@@ -1,5 +1,7 @@
+import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterator, NamedTuple
 
 from fastapi import HTTPException, Query
@@ -8,6 +10,10 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool, PoolTimeout
 
 _pool: ConnectionPool | None = None
+log = logging.getLogger(__name__)
+
+SCHEMA_FILES = ("database_structure.sql", "banks_seed.sql", "app_users_seed.sql")
+SCHEMA_LOCK = 7_770_004
 
 
 def utcnow() -> datetime:
@@ -22,6 +28,38 @@ def init_pool() -> None:
     _pool = ConnectionPool(dsn, min_size=1, max_size=10, timeout=5, open=False,
                            kwargs={"row_factory": dict_row, "options": "-c timezone=UTC"})
     _pool.open()
+
+
+def init_schema(conn) -> bool:
+    """Load the schema and reference rows into an empty database (first start, e.g. on Render); return whether it did.
+
+    Does nothing when the tables already exist, so a database set up by docker-compose or by hand is left alone.
+    """
+    def missing() -> bool:
+        return conn.execute("SELECT to_regclass('public.app_users') IS NULL AS m").fetchone()["m"]
+
+    if not missing():
+        return False
+    conn.execute("SELECT pg_advisory_xact_lock(%s)", (SCHEMA_LOCK,))  # two instances starting together
+    if not missing():
+        conn.rollback()
+        return False
+    base = Path(__file__).resolve().parents[1]
+    for name in SCHEMA_FILES:
+        conn.execute((base / name).read_text())
+    conn.commit()
+    return True
+
+
+def ensure_schema() -> None:
+    if _pool is None or os.environ.get("AUTO_INIT_DB") == "0":
+        return
+    try:
+        with _pool.connection() as conn:
+            if init_schema(conn):
+                log.warning("database was empty: loaded %s", ", ".join(SCHEMA_FILES))
+    except Exception:
+        log.exception("could not check or load the database schema")
 
 
 def close_pool() -> None:

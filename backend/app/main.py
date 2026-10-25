@@ -15,6 +15,7 @@ FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_pool()
+    db.ensure_schema()
     retrace = asyncio.create_task(jobs.retrace_loop()) if jobs.enabled() else None
     yield
     if retrace:
