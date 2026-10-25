@@ -11920,11 +11920,12 @@ const OfficerLz = H.lazy(() => $e(() => import("./Officer.js"), [], import.meta.
   const e = xt(),
    A = window.PeechaAPI,
    s = H.useSyncExternalStore(A.subscribe, A.get),
-   role = e.user ? e.user.key : "";
+   key = e.user ? e.user.key : "",
+   role = key === "analyst" ? "analyst:" + e.bank : key;
   H.useEffect(() => {
-   role === "officer" && A.use(role)
+   (key === "officer" || key === "analyst") && A.use(role)
   }, [role, s.status]);
-  if (!(role === "officer" && s.role === "officer" && s.status === "live")) return S.jsx(Demo, {});
+  if (!((key === "officer" || key === "analyst") && s.role === role && s.status === "live")) return S.jsx(Demo, {});
   return S.jsx(H.Suspense, {
    fallback: S.jsx("div", {
     className: "empty",

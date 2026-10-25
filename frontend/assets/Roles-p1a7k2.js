@@ -30,7 +30,8 @@ const API = window.PeechaAPI || {
 
 function useLive() {
  const s = R.useSyncExternalStore(API.subscribe, API.get),
-  role = (useApp().user || {}).key || "consumer";
+  e = useApp(),
+  role = e.user ? (e.user.key === "analyst" ? "analyst:" + e.bank : e.user.key) : "consumer";
  R.useEffect(() => {
   API.use && API.use(role)
  }, [role, s.status]);
@@ -627,7 +628,7 @@ export function FileComplaint() {
  });
  const [busy, setBusy] = R.useState(false);
  const live = useLive(),
-  useBackend = (role === "consumer" || role === "officer") && live.status === "live";
+  useBackend = live.status === "live";
  const set = k => ev => setF({
   ...f,
   [k]: ev.target.value
@@ -1799,5 +1800,5 @@ function ConsumerReports() {
 export function Reports() {
  const e = useApp(),
   live = useLive();
- return e.user.key === "consumer" || (e.user.key === "officer" && live.status === "live") ? h(ConsumerReports, null) : h(ActionReport, null)
+ return e.user.key === "consumer" || (e.user.key !== "consumer" && live.status === "live") ? h(ConsumerReports, null) : h(ActionReport, null)
 }
