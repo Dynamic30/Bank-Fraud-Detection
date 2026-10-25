@@ -147,7 +147,7 @@ function N() {
  return e.jsxs(e.Fragment, {
   children: [e.jsx(x, {
    title: "Settings",
-   desc: "Backend connection, appearance and server settings.",
+   desc: "Your role, and how the app looks in this browser.",
    sources: ["Config"]
   }), e.jsxs("section", {
    className: "card card-pad",
@@ -346,7 +346,7 @@ function N() {
       }, s.key))
      })
     })]
-   }), e.jsx(S, {}), false && e.jsx(c, {
+   }), false && e.jsx(c, {
     title: "About this prototype",
     sub: "What is real and what is simulated.",
     children: e.jsxs("ul", {

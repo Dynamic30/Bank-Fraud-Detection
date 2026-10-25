@@ -11968,9 +11968,6 @@ const OfficerLz = H.lazy(() => $e(() => import("./Officer.js"), [], import.meta.
  OfflineLz = H.lazy(() => $e(() => import("./Officer.js").then(m => ({
   default: m.Offline
  })), [], import.meta.url)),
- SettingsLiveLz = H.lazy(() => $e(() => import("./Officer.js").then(m => ({
-  default: m.SettingsCard
- })), [], import.meta.url)),
  liveGate = (Demo, page) => function LiveGate() {
   const e = xt(),
    A = window.PeechaAPI,
@@ -11982,12 +11979,7 @@ const OfficerLz = H.lazy(() => $e(() => import("./Officer.js"), [], import.meta.
   }, [role, s.status]);
   if (key !== "officer" && key !== "analyst") return S.jsx(Demo, {});
   const isLive = s.role === role && s.status === "live";
-  if (page === "settings") return S.jsx(H.Suspense, {
-   fallback: null,
-   children: S.jsxs(H.Fragment, {
-    children: [S.jsx(Demo, {}), isLive && S.jsx(SettingsLiveLz, {})]
-   })
-  });
+  if (page === "settings") return S.jsx(Demo, {});
   if (!isLive) return S.jsx(H.Suspense, {
    fallback: null,
    children: S.jsx(OfflineLz, {

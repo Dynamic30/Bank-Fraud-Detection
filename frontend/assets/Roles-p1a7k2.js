@@ -1021,7 +1021,7 @@ function LiveMine({
     onClick: () => e.open("file")
    }, "＋ File a complaint")
   }),
-  items.slice().reverse().map(it => h(LiveCard, {
+  items.map(it => h(LiveCard, {
    key: it.c.id,
    it
   })),
