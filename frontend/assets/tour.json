@@ -1,0 +1,122 @@
+{
+  "voices": { "en": "EXAVITQu4vr4xnSDxMaL", "hi": "EXAVITQu4vr4xnSDxMaL" },
+  "cards": [
+    {
+      "id": "intro", "page": "inbox",
+      "title": { "en": "Peecha", "hi": "पीछा" },
+      "text": { "en": "Peecha. It follows your money.", "hi": "पीछा। आपके पैसे का पीछा करता है।" }
+    },
+    {
+      "id": "problem", "page": "inbox",
+      "title": { "en": "The problem", "hi": "समस्या" },
+      "text": {
+        "en": "Cyber-fraud complaints arrive faster than anyone can trace them. Within minutes, a victim's money is split across mule accounts, then cashed out or turned into crypto. Peecha follows that money automatically, from the very first complaint.",
+        "hi": "साइबर ठगी की शिकायतें इतनी तेज़ी से आती हैं कि हर किसी का पैसा ढूँढ पाना मुश्किल है। कुछ ही मिनटों में पीड़ित का पैसा कई म्यूल खातों में बँट जाता है, फिर निकाल लिया जाता है या क्रिप्टो में बदल जाता है। पीछा, पहली शिकायत से ही उस पैसे का अपने आप पीछा करता है।"
+      }
+    },
+    {
+      "id": "complaint", "page": "inbox",
+      "title": { "en": "A complaint arrives", "hi": "शिकायत आती है" },
+      "text": {
+        "en": "A victim, a bank or the cyber cell files a complaint with the account, the amount and the UTR. The trace starts by itself. This list shows every complaint, and whether its trace is running, finished, or needs a re-run.",
+        "hi": "पीड़ित, बैंक या साइबर सेल खाता, रकम और यू टी आर के साथ शिकायत दर्ज करता है। ट्रेस अपने आप शुरू हो जाता है। यह सूची हर शिकायत दिखाती है, और यह भी कि ट्रेस चल रहा है, पूरा हो गया है, या दोबारा चलाना है।"
+      }
+    },
+    {
+      "id": "trail", "page": "trail", "case": "best",
+      "title": { "en": "The money trail", "hi": "पैसे का सफ़र" },
+      "text": {
+        "en": "Each box is an account. Money flows left to right, hop by hop, from the victim through the mule layers to cash-out or crypto. Thicker lines carry more of the victim's money, and you can replay the whole trail in time.",
+        "hi": "हर डिब्बा एक खाता है। पैसा बाईं से दाईं ओर, एक-एक कदम में, पीड़ित से म्यूल खातों होते हुए कैश आउट या क्रिप्टो तक जाता है। मोटी लाइन में पीड़ित का ज़्यादा पैसा गया है, और पूरे सफ़र को दोबारा चलाकर देखा जा सकता है।"
+      }
+    },
+    {
+      "id": "account", "page": "accounts", "account": "top",
+      "title": { "en": "Why this account", "hi": "यही खाता क्यों" },
+      "text": {
+        "en": "Mule radar ranks every account by a risk score. Open one to see exactly why: money passing straight through, a shared device, or a profile that does not match. Every point of the score is explained.",
+        "hi": "म्यूल रडार हर खाते को जोखिम स्कोर के हिसाब से क्रम में रखता है। कोई भी खाता खोलिए और देखिए कि स्कोर क्यों है: पैसा सीधे आगे निकल जाना, एक ही डिवाइस का साझा होना, या प्रोफ़ाइल से मेल न खाना। स्कोर का हर अंक समझाया गया है।"
+      }
+    },
+    {
+      "id": "seam", "page": "trail", "case": "best",
+      "title": { "en": "On to crypto", "hi": "क्रिप्टो तक पीछा" },
+      "text": {
+        "en": "When mule accounts pay a peer-to-peer crypto seller, the trail does not stop. Peecha matches the rupee payment to the seller's USDT release, and keeps following the money on the blockchain.",
+        "hi": "जब म्यूल खाते किसी पी टू पी क्रिप्टो विक्रेता को पैसे देते हैं, तब भी पीछा नहीं रुकता। पीछा रुपये के भुगतान को विक्रेता के यू एस डी टी भेजने से मिलाता है, और ब्लॉकचेन पर पैसे का पीछा जारी रखता है।"
+      }
+    },
+    {
+      "id": "suggest", "page": "holds",
+      "title": { "en": "Suggested holds", "hi": "सुझाए गए होल्ड" },
+      "text": {
+        "en": "On the Holds page, Peecha suggests holds for accounts that still hold the victim's money and score above the threshold. Nothing is applied automatically. A person decides.",
+        "hi": "होल्ड्स पेज पर, पीछा उन खातों के लिए होल्ड सुझाता है जिनमें अब भी पीड़ित का पैसा है और जिनका स्कोर सीमा से ऊपर है। कुछ भी अपने आप लागू नहीं होता। फ़ैसला इंसान का होता है।"
+      }
+    },
+    {
+      "id": "officer", "page": "holds",
+      "title": { "en": "The officer acts", "hi": "अधिकारी की कार्रवाई" },
+      "text": {
+        "en": "The officer can request or place a 24-hour hold with one click, then confirm or release it. If nobody confirms, the hold lifts on its own. Every step is logged with a name and a time.",
+        "hi": "अधिकारी एक क्लिक में चौबीस घंटे का होल्ड माँग सकता है या लगा सकता है, फिर उसे पक्का या हटा सकता है। किसी ने पक्का नहीं किया तो होल्ड अपने आप हट जाता है। हर कदम नाम और समय के साथ दर्ज होता है।"
+      }
+    },
+    {
+      "id": "freeze", "page": "action",
+      "title": { "en": "Freeze requests", "hi": "फ़्रीज़ अनुरोध" },
+      "text": {
+        "en": "The Freeze button drafts a request to the bank, with the account, the amount and the reason already filled in, and approves it. In the action pack, the officer only has to press Send.",
+        "hi": "फ़्रीज़ बटन बैंक को भेजने वाला अनुरोध बना देता है, जिसमें खाता, रकम और कारण पहले से भरे होते हैं, और उसे मंज़ूर भी कर देता है। एक्शन पैक में अधिकारी को बस भेजें दबाना होता है।"
+      }
+    },
+    {
+      "id": "rerun", "page": "inbox",
+      "title": { "en": "Re-run any time", "hi": "कभी भी दोबारा चलाएँ" },
+      "text": {
+        "en": "Traces repeat automatically, so new money that arrives later extends the trail. If a trace found nothing or failed, anyone who can see the case can re-run it from here, and the reason is shown.",
+        "hi": "ट्रेस अपने आप दोहराए जाते हैं, इसलिए बाद में आया नया पैसा भी सफ़र में जुड़ जाता है। अगर ट्रेस में कुछ नहीं मिला या वह नाकाम रहा, तो मामला देखने वाला कोई भी यहीं से उसे दोबारा चला सकता है, और कारण भी दिखता है।"
+      }
+    },
+    {
+      "id": "calls", "page": "prevent",
+      "title": { "en": "Prevention calls", "hi": "रोकथाम के लिए कॉल" },
+      "text": {
+        "en": "Before a new account becomes a mule, Peecha can phone its holder in Hindi and warn them. Accounts above the call score are phoned once, and the answer is logged here.",
+        "hi": "इससे पहले कि कोई नया खाता म्यूल बने, पीछा उसके मालिक को हिंदी में फ़ोन करके चेतावनी दे सकता है। कॉल स्कोर से ऊपर के खातों को एक बार फ़ोन किया जाता है, और जवाब यहाँ दर्ज होता है।"
+      }
+    },
+    {
+      "id": "numbers", "page": "model",
+      "title": { "en": "Honest numbers", "hi": "सच्चे आँकड़े" },
+      "text": {
+        "en": "The model page shows what the detector has scored: how many accounts sit in the hold band and the warning-call band, and how many are suspected, confirmed or cleared. No hidden numbers.",
+        "hi": "मॉडल पेज दिखाता है कि डिटेक्टर ने क्या स्कोर किया है: कितने खाते होल्ड वाली और चेतावनी कॉल वाली श्रेणी में हैं, और कितने संदिग्ध, पक्के या साफ़ हैं। कोई छिपे हुए आँकड़े नहीं।"
+      }
+    },
+    {
+      "id": "audit", "page": "audit",
+      "title": { "en": "Audit trail", "hi": "ऑडिट रिकॉर्ड" },
+      "text": {
+        "en": "Every complaint, trace, hold and call is written to one tamper-evident chain. Change a single entry and the chain check fails, so the record can be trusted.",
+        "hi": "हर शिकायत, ट्रेस, होल्ड और कॉल एक ऐसी कड़ी में दर्ज होती है जिसमें छेड़छाड़ पकड़ में आ जाती है। एक भी प्रविष्टि बदली गई तो जाँच विफल हो जाती है, इसलिए रिकॉर्ड पर भरोसा किया जा सकता है।"
+      }
+    },
+    {
+      "id": "roles", "page": "inbox",
+      "title": { "en": "Who sees what", "hi": "कौन क्या देखता है" },
+      "text": {
+        "en": "Each role sees only its own part. Victims see only their own complaints, banks see their own accounts with the others masked, and only the officer can approve an action.",
+        "hi": "हर भूमिका को सिर्फ़ अपना हिस्सा दिखता है। पीड़ित सिर्फ़ अपनी शिकायतें देखते हैं, बैंक अपने खाते देखते हैं और बाकी छिपे रहते हैं, और कार्रवाई मंज़ूर करना सिर्फ़ अधिकारी के हाथ में है।"
+      }
+    },
+    {
+      "id": "done", "page": "inbox",
+      "title": { "en": "Tour complete", "hi": "दौरा पूरा" },
+      "text": {
+        "en": "Trace, score, act, prevent. That is Peecha. Explore freely: file a complaint, switch roles from the sidebar, or ask the AI copilot.",
+        "hi": "ट्रेस, स्कोर, कार्रवाई, रोकथाम। यही है पीछा। अब खुद आज़माइए: शिकायत दर्ज कीजिए, साइडबार से भूमिका बदलिए, या एआई कोपायलट से पूछिए।"
+      }
+    }
+  ]
+}
