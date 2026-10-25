@@ -134,7 +134,7 @@
       name: f.name.trim(), phone_1: f.phone || null, city: f.city || null,
       scam_type: f.scamType, incident_description: f.description || null,
       total_lost: Number(f.amount),
-      fraud_time: f.fraudTime || new Date().toISOString().slice(0, 19),
+      fraud_time: f.fraudTime ? f.fraudTime.slice(0, 10) + "T" + (f.fraudClock || "12:00") + ":00" : new Date().toISOString().slice(0, 19),
       payments: [pay]
     };
     if (/^[A-Z0-9]+:[A-Za-z0-9]+$/.test((f.victimAccount || "").trim())) body.victim_account_id = f.victimAccount.trim();
