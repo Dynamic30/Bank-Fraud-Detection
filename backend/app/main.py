@@ -1,11 +1,12 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, db
+from . import auth, db, jobs
 from .routers import accounts, actions, ask, audit, banks, calls, complaints, holds, mules, settings, tron
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
@@ -14,7 +15,12 @@ FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_pool()
+    retrace = asyncio.create_task(jobs.retrace_loop()) if jobs.enabled() else None
     yield
+    if retrace:
+        retrace.cancel()
+        with suppress(asyncio.CancelledError):
+            await retrace
     db.close_pool()
 
 

@@ -5,9 +5,12 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
 
+from pipeline import hold_proposals
+
+from .. import jobs
 from ..auditlog import write_audit
 from ..auth import User, current_user
-from ..db import Page, get_conn, page, utcnow
+from ..db import Page, get_conn, page, pipeline_conn, utcnow
 from ..masking import mask, require_access, scope, visible_complaint
 
 router = APIRouter(prefix="/complaints", tags=["complaints"])
@@ -110,6 +113,18 @@ def complaint_trail(complaint_id: str, method: Literal["fifo", "lifo", "prorata"
     return mask(user, "trail", rows)
 
 
+@router.get("/{complaint_id}/hold-proposals")
+def complaint_hold_proposals(complaint_id: str, user: User = Depends(current_user), conn=Depends(get_conn)):
+    require_access(user, "holds")
+    if not user.can_write:
+        raise HTTPException(403, "view-only access cannot see hold proposals")
+    if visible_complaint(conn, user, complaint_id) is None:
+        raise HTTPException(404, "complaint not found")
+    with pipeline_conn() as plain:
+        found = hold_proposals.proposals(plain, complaint_id)
+    return mask(user, "proposal", [p for p in found if user.is_officer or p["bank_id"] == user.bank_id])
+
+
 @router.post("", status_code=201)
 def file_complaint(body: ComplaintIn, user: User = Depends(current_user), conn=Depends(get_conn)):
     total = body.total_lost or sum((p.amount for p in body.payments), Decimal(0))
@@ -156,4 +171,6 @@ def file_complaint(body: ComplaintIn, user: User = Depends(current_user), conn=D
     write_audit(conn, user.id, "COMPLAINT",
                 f"{cid} filed ({row['filed_via']}) · {body.scam_type} · Rs {total:,.2f} reported lost", cid)
     conn.commit()
+    if jobs.enabled():
+        jobs.start_trace(cid)
     return {**mask(user, "complaint", row), "payments": mask(user, "payment", payments)}

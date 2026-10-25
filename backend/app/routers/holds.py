@@ -22,6 +22,7 @@ class HoldIn(BaseModel):
     complaint_id: str | None = None
     amount: Decimal | None = Field(default=None, gt=0)
     score_at_time: Decimal | None = None
+    basis: Literal["ai_draft"] | None = None
 
 
 class DecisionIn(BaseModel):
@@ -110,7 +111,7 @@ def place_hold(body: HoldIn, user: User = Depends(current_user), conn=Depends(ge
             """INSERT INTO holds (account_id, bank_id, complaint_id, origin, basis, status, reason, score_at_time,
                                   amount, placed_by, placed_at, expires_at, executed_by, executed_at)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
-            (body.account_id, acct["bank_id"], body.complaint_id, origin, basis, status, body.reason,
+            (body.account_id, acct["bank_id"], body.complaint_id, origin, body.basis or basis, status, body.reason,
              body.score_at_time, body.amount, user.id, now, expires, executed_by, executed_at)).fetchone()
     except UniqueViolation:
         conn.rollback()
