@@ -61,6 +61,34 @@ const Empty = (title, sub) => h("div", { className: "empty" }, h("b", null, titl
 const Status = ({ st }) => st.loading ? h("div", { className: "note info" }, "Loading…") : st.err ? h("div", { className: "note change" }, st.err) : null;
 const Field = (label, node) => h("label", null, label, node);
 
+/* Where a complaint's trace stands, with a Re-run button when it did not work (or any time, so a case can be shown again) */
+const TRACE_LABEL = { running: "Tracing…", done: "Traced", no_data: "No data found", failed: "Trace failed", waiting: "Starting…", not_started: "Not started", not_configured: "Tracing off" };
+const TRACE_TONE = { running: "info", done: "rec-solid", no_data: "med", failed: "high", waiting: "accent", not_started: "med", not_configured: "neutral" };
+const BAD_TRACE = ["no_data", "failed", "not_started"];
+
+function useRetrace(e, id) {
+ const [busy, setBusy] = R.useState(false);
+ return [busy, () => { setBusy(true); API.retrace(id).then(() => e.toast("Trace started"), err => e.toast(err.message)).then(() => setBusy(false)) }]
+}
+
+export function TraceNote({ it, done }) {
+ const e = useApp(), t = it.trace, [busy, again] = useRetrace(e, it.c.id);
+ if (!t) return null;
+ const text = { running: "Tracing the money… this usually takes about a minute.", waiting: "Received. The trace is about to start.",
+  done: done || `${t.rows} transfers traced.`, no_data: `No data found. ${t.message || ""}`, failed: t.message, not_started: t.message, not_configured: t.message }[t.state];
+ const bad = BAD_TRACE.includes(t.state);
+ return h("div", { className: "note " + (bad ? "change" : t.state === "done" ? "ok" : "info"), style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 12 } },
+  h("span", { style: { flex: 1, minWidth: 200 } }, text),
+  t.can_rerun && h("button", { className: "btn sm " + (bad ? "" : "ghost"), disabled: busy, onClick: again }, busy ? "Starting…" : bad ? "Re-run trace" : "Run again"))
+}
+
+function TraceCell({ it }) {
+ const e = useApp(), t = it.trace, [busy, again] = useRetrace(e, it.c.id);
+ if (!t) return "—";
+ return h("div", { style: { display: "flex", gap: 6, alignItems: "center" } }, h(Pill, { tone: TRACE_TONE[t.state] || "neutral" }, TRACE_LABEL[t.state] || t.state),
+  t.can_rerun && BAD_TRACE.includes(t.state) && h("button", { className: "btn sm", disabled: busy, onClick: ev => { ev.stopPropagation(); again() } }, "Re-run"))
+}
+
 /* ------------------------------------------------------------------ Inbox */
 function Inbox() {
  const e = useApp(),
@@ -79,11 +107,11 @@ function Inbox() {
    h(Kpi, { label: "Tracing / actioned", value: String(count("tracing") + count("actioned")) })),
   h("div", { style: { marginTop: 18 } }, h(Card, { title: "Complaints", sub: "Newest first. Click a case to open its money trail." },
    items.length === 0 ? Empty("No complaints to show yet.", "Complaints filed or received will appear here.") :
-   Table([["Case"], ["Scam"], ["Amount lost", "right", "nowrap"], ["Channel"], ["Filed via"], ["Status"], ["Reported"]],
+   Table([["Case"], ["Scam"], ["Amount lost", "right", "nowrap"], ["Channel"], ["Filed via"], ["Status"], ["Trace"], ["Reported"]],
     items.map(i => ({
      src: i.c.id,
      cells: [h("div", null, h("div", { className: "cell-main mono" }, i.c.id), h("div", { className: "cell-sub" }, i.c.name, " · ", i.c.city || "—")),
-      i.c.scam_type, money(i.c.total_lost), i.c.channel, i.c.filed_via, pill(i.c.status), when(i.c.reported_at)]
+      i.c.scam_type, money(i.c.total_lost), i.c.channel, i.c.filed_via, pill(i.c.status), h(TraceCell, { it: i }), when(i.c.reported_at)]
     })), id => { API.pick.case = id; e.go("trail") }))))
 }
 
@@ -321,6 +349,7 @@ function Trail() {
      key: m, className: "btn sm " + (m === method ? "" : "ghost"), disabled: !COMPUTED.includes(m),
      title: COMPUTED.includes(m) ? "" : "Not computed yet: the tracer only follows FIFO", onClick: () => setMethod(m)
     }, m.toUpperCase()))),
+   it && h(TraceNote, { it }),
    it && h("div", { className: "kpis", style: { marginTop: 14 } },
     h(Kpi, { label: "Amount lost", value: money(it.c.total_lost) }),
     h(Kpi, { label: "Traced (first hop)", value: money(traced), tone: "rec" }),
@@ -328,7 +357,7 @@ function Trail() {
    rows.length > 0 && it && h(TrailGraph, { rows, c: it.c }),
    h("div", { style: { marginTop: 18 } }, h(Card, { title: `Trail · ${method.toUpperCase()}`, sub: id },
     h(Status, { st }),
-    !st.loading && !st.err && rows.length === 0 ? Empty("Not traced yet.", "The orchestrator has not written a trail for this complaint.") :
+    !st.loading && !st.err && rows.length === 0 ? Empty("No trail yet.", "See the trace status above; re-run it if it did not work.") :
     rows.length ? Table([["Hop", "right"], ["Time", "", "nowrap"], ["From → To"], ["Banks"], ["Traced", "right", "nowrap"], ["Rail"], ["Status"]],
      rows.map(r => ({ cells: [r.hop, when(r.ts), `${r.from_ref} → ${r.to_ref || "CASH"}`, `${r.from_bank || "—"} → ${r.to_bank || "—"}`,
       r.asset && r.asset !== "INR" ? `${Number(r.asset_amount)} ${r.asset}` : money(r.traced_amount), r.rail, pill(r.status || "traced")] }))) : null)),
@@ -349,14 +378,19 @@ function Radar() {
  const detail = useGet(sel ? `/accounts/${encodeURIComponent(sel)}` : null, [sel]);
  const run = useDo(e, null);
  const a = detail.data;
+ const rerunAccount = id => API.call("POST", `/accounts/${encodeURIComponent(id)}/rerun`).then(r => {
+  e.toast(`Read ${r.transfers_read} transfers · ${r.score == null ? "not enough data to score yet" : "score " + Math.round(r.score)}`);
+  accts.reload(); detail.reload()
+ }, err => e.toast(err.message));
  return h(R.Fragment, null,
   h(PageHead, { title: "Mule radar", desc: "Accounts ranked by mule score, and accounts the detector has flagged." }),
   h(Status, { st: accts }),
   h(Card, { title: "Accounts", sub: "Highest score first. Click one for its reasons." },
    !accts.data || accts.data.length === 0 ? Empty("No accounts yet.", "Accounts appear after the first pull.") :
-   Table([["Account"], ["Holder"], ["Bank"], ["Kind"], ["Score", "right"]], accts.data.map(x => ({
+   Table([["Account"], ["Holder"], ["Bank"], ["Kind"], ["Score", "right"], [""]], accts.data.map(x => ({
     src: x.account_id,
-    cells: [h("span", { className: "mono" }, x.account_id), x.holder_name || "—", x.bank_id || "—", x.kind, x.score == null ? "—" : h(Pill, { tone: scoreTone(Number(x.score)) }, Number(x.score).toFixed(0))]
+    cells: [h("span", { className: "mono" }, x.account_id), x.holder_name || "—", x.bank_id || "—", x.kind, x.score == null ? "—" : h(Pill, { tone: scoreTone(Number(x.score)) }, Number(x.score).toFixed(0)),
+     x.score == null && x.kind === "bank" ? h("button", { className: "btn sm", title: "Read this account from the bank and score it", onClick: ev => { ev.stopPropagation(); rerunAccount(x.account_id) } }, "Run") : null]
    })), setSel)),
   sel && h("div", { style: { marginTop: 18 } }, h(Card, { title: sel, sub: a ? `${a.holder_name || "—"} · ${a.bank_id || a.kind}` : "" },
    h(Status, { st: detail }),
@@ -364,7 +398,8 @@ function Radar() {
     h("div", { className: "kpis three" }, h(Kpi, { label: "Score", value: a.score == null ? "—" : Number(a.score).toFixed(0) }),
      h(Kpi, { label: "Complaints naming it", value: String(a.repeat_offender_count) }), h(Kpi, { label: "Model", value: a.model_version || "—" })),
     h("pre", { className: "mono", style: { whiteSpace: "pre-wrap", fontSize: 12, marginTop: 12 } }, a.reasons ? JSON.stringify(a.reasons, null, 2) : "No score reasons yet."),
-    a.kind === "bank" && h("div", { className: "btn-row" }, h("button", {
+    h("div", { className: "btn-row" }, h("button", { className: "btn ghost sm", title: "Read this account from the bank again and score it again", onClick: () => rerunAccount(sel) }, "Re-run (read + score)"),
+    a.kind === "bank" && h("button", {
      className: "btn hold sm", onClick: () => run("Hold requested", () => API.call("POST", "/holds", { account_id: sel, reason: `Mule score ${a.score == null ? "n/a" : Number(a.score).toFixed(0)}`, score_at_time: a.score }))
     }, officer ? "Request hold" : "Place 24h hold"),
     officer && a.kind === "bank" && (API.pick.case || (API.get().items[0] || { c: {} }).c.id) && h("button", {

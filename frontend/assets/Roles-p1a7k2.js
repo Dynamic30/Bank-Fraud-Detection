@@ -19,7 +19,7 @@ import {
  k as dl,
  D as ROLES
 } from "./index-DAvlYmAS.js";
-import { Offline } from "./Officer.js";
+import { Offline, TraceNote } from "./Officer.js";
 const h = R.createElement;
 /* live backend data for the consumer screens (assets/api.js); status "live" = use it, anything else = demo engine */
 const API = window.PeechaAPI || {
@@ -905,13 +905,16 @@ function LiveCard({
     ["Money held", c.status === "closed"]
    ]
   }),
-  h("p", {
+  it.trace ? h(TraceNote, {
+   it,
+   done: `Your money has moved through ${new Set(trail.map(x => x.to_ref)).size} account(s) so far.`
+  }) : h("p", {
    className: "sec",
    style: {
     fontSize: 13,
     marginTop: 12
    }
-  }, c.status === "open" ? "Received. An officer will start the trace shortly." : trail.length ? `Your money has moved through ${new Set(trail.map(x => x.to_ref)).size} account(s) so far.` : "An officer has started tracing your money."),
+  }, c.status === "open" ? "Received. An officer will start the trace shortly." : "An officer has started tracing your money."),
   trail.length > 0 && h("div", {
    className: "kpis",
    style: {
