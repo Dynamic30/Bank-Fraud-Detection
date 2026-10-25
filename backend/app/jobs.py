@@ -35,11 +35,24 @@ def record_failure(complaint_id: str, error: str) -> None:
         log.exception("could not record the failed trace of %s", complaint_id)
 
 
+def record_problems(complaint_id: str, failures: list) -> None:
+    """Keep why a trace found nothing (or only part) in the audit log, so it is still known after a restart."""
+    more = f" (+{len(failures) - 1} more)" if len(failures) > 1 else ""
+    try:
+        with pipeline_conn() as conn:
+            write_audit(conn, orchestrator.ACTOR, "TRACE", f"Trace of {complaint_id} had problems: {failures[0]}{more}", complaint_id)
+    except Exception:
+        log.exception("could not record the problems of the trace of %s", complaint_id)
+
+
 def trace(complaint_id: str) -> None:
     RUNNING.add(complaint_id)
     try:
         summary = orchestrator.run(complaint_id)
-        RESULTS[complaint_id] = {"at": now(), "error": None, "failures": summary.get("failures", [])}
+        failures = summary.get("failures", [])
+        RESULTS[complaint_id] = {"at": now(), "error": None, "failures": failures}
+        if failures:
+            record_problems(complaint_id, failures)
     except Exception as e:
         log.exception("trace of %s failed", complaint_id)
         error = f"{type(e).__name__}: {e}"[:300]

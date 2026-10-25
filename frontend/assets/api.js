@@ -73,6 +73,30 @@
     INDB: "INDUSIND", YESB: "YES", RATN: "RBL", KKBK: "KOTAK", IDFB: "IDFC", FDRL: "FEDERAL", BDBL: "BANDHAN", HDFC: "HDFC",
     AUBL: "AU", ESFB: "EQUITAS", SIBL: "SIB", PYTM: "PAYTM", IPOS: "IPPB", AIRP: "AIRTEL"
   };
+  var BANK_CODES = Object.keys(BANKS).map(function (k) { return BANKS[k]; });
+
+  // "icici 876296367481", "ICICI-876296367481", "ICIC:876296367481" and "ICICI:876296367481" are all ICICI:876296367481
+  function normAccount(raw) {
+    var text = String(raw || "").trim().toUpperCase().replace(/\sBANK\s/g, " ");
+    if (!text) return { ok: false, empty: true, error: "Enter the bank and the full account number, like ICICI:876296367481" };
+    var m = /^([A-Z]{2,10})[\s:\-_\/.]*((?=[A-Z0-9]*\d)[A-Z0-9]{1,24})$/.exec(text);
+    if (!m) return { ok: false, error: "Write the bank and the full number, like ICICI:876296367481" };
+    var bank = BANK_CODES.indexOf(m[1]) >= 0 ? m[1] : BANKS[m[1]];
+    if (!bank) return { ok: false, error: "'" + m[1] + "' is not a bank we know. Use a code like ICICI, SBI, HDFC, AXIS or KOTAK" };
+    if (m[2].length < 8) return { ok: false, error: "'" + m[2] + "' is too short to be a full account number. Type all the digits, not the last four" };
+    return { ok: true, value: bank + ":" + m[2] };
+  }
+
+  // a UPI id (name@bank), or a UTR / reference of 10 to 25 letters and digits with real digits in it; a wallet address for crypto
+  function checkRef(raw, crypto) {
+    var t = String(raw || "").trim();
+    if (!t) return { ok: false, empty: true, error: crypto ? "Enter the wallet address" : "Enter the UTR or the UPI ID" };
+    if (crypto || t.indexOf("@") > 0) return { ok: true, value: t };
+    var u = t.replace(/\s+/g, "");
+    if (/^[A-Za-z0-9]{10,25}$/.test(u) && (u.match(/\d/g) || []).length >= 6) return { ok: true, value: u };
+    return { ok: false, error: "That does not look like a UTR (usually 12 digits) or a UPI id (name@bank)" };
+  }
+
   var EMAILS = {
     officer: "meera.baruah@cybercell.example", analyst: "rahul.nair@sbi.example",
     "analyst:SBIN": "rahul.nair@sbi.example", "analyst:HDFC": "sanjay.kulkarni@hdfc.example",
@@ -127,7 +151,10 @@
   }
 
   function file(f) {
-    var ref = (f.ref || "").trim(), pay = { amount: Number(f.amount) };
+    var acct = normAccount(f.victimAccount), refc = checkRef(f.ref, f.destination === "crypto");
+    if (!acct.ok) return Promise.reject(new Error(acct.error));
+    if (!refc.ok) return Promise.reject(new Error(refc.error));
+    var ref = refc.value, pay = { amount: Number(f.amount) };
     if (f.destination === "crypto") { pay.destination_type = "crypto"; pay.wallet_address = ref; pay.crypto_chain = "TRON"; pay.crypto_asset = "USDT"; }
     else if (ref.indexOf("@") > 0) pay.paid_to_upi_id = ref;
     else pay.utr = ref;
@@ -138,7 +165,7 @@
       fraud_time: f.fraudTime ? f.fraudTime.slice(0, 10) + "T" + (f.fraudClock || "12:00") + ":00" : new Date().toISOString().slice(0, 19),
       payments: [pay]
     };
-    if (/^[A-Z0-9]+:[A-Za-z0-9]+$/.test((f.victimAccount || "").trim())) body.victim_account_id = f.victimAccount.trim();
+    body.victim_account_id = acct.value;
     return call("POST", "/complaints", body).then(function (r) { return refresh().then(function () { return r; }); });
   }
 
@@ -173,6 +200,8 @@
     get: function () { return state; },
     subscribe: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (x) { return x !== fn; }); }; },
     banks: BANKS,
+    normAccount: normAccount,
+    checkRef: checkRef,
     cleanUrl: cleanUrl,
     baseUrl: base,
     pick: { case: null, account: null },

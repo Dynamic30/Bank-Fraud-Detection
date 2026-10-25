@@ -594,31 +594,6 @@ function Offline({ state }) {
     h("button", { className: "btn ghost", onClick: () => e.go("settings") }, "Open Settings"))))
 }
 
-/* ----------------------------------------------------------------- Crypto */
-function Crypto() {
- const e = useApp(),
-  wallets = useGet("/accounts?kind=wallet&limit=200");
- const [addr, setAddr] = R.useState("");
- const [q, setQ] = R.useState("");
- const rows = useGet(q ? `/tron?address=${encodeURIComponent(q)}` : null, [q]);
- const bad = addr.trim() && !/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(addr.trim());
- return h(R.Fragment, null,
-  h(PageHead, { title: "Crypto wallets", desc: "USDT on TRON. Transfers come from the traced money, not from an outside lookup." }),
-  h(Card, { title: "Look up a wallet" },
-   h("div", { className: "btn-row" },
-    h("input", { className: "input mono", style: { flex: 1 }, value: addr, onChange: ev => setAddr(ev.target.value), placeholder: "T… TRON address" }),
-    h("button", { className: "btn", disabled: !addr.trim() || bad, onClick: () => setQ(addr.trim()) }, "Look up")),
-   bad && h("div", { className: "note change", style: { marginTop: 10 } }, "That is not a valid TRON address."),
-   q && h("div", { style: { marginTop: 14 } }, h(Status, { st: rows }),
-    rows.data && (rows.data.rows.length === 0 ? Empty("No transfers for this wallet.", "") : Table([["Time", "", "nowrap"], ["From"], ["To"], ["USDT", "right"], ["Hash"]],
-     rows.data.rows.map(r => ({ cells: [when(new Date(r.time).toISOString()), h("span", { className: "mono" }, r.from), h("span", { className: "mono" }, r.to), r.amount, h("span", { className: "mono" }, r.hash)] })))))),
-  h("div", { style: { marginTop: 18 } }, h(Card, { title: "Wallets Peecha has seen", sub: "Click one to look it up" },
-   h(Status, { st: wallets }),
-   wallets.data && wallets.data.length === 0 ? Empty("No wallets yet.", "Wallets appear when a trail reaches the chain.") : wallets.data ? Table([["Wallet"], ["Kind"], ["Score", "right"]],
-    wallets.data.map(w => ({ src: w.account_id, cells: [h("span", { className: "mono" }, w.account_id), w.wallet_kind || "—", w.score == null ? "—" : h(Pill, { tone: scoreTone(Number(w.score)) }, Number(w.score).toFixed(0))] })),
-    id => { const a = id.replace(/^TRON:/, ""); setAddr(a); setQ(a) }) : null)))
-}
-
 /* ------------------------------------------------------------------ Model */
 function Model() {
  const accts = useGet("/accounts?limit=500"),
@@ -643,7 +618,7 @@ function Model() {
    h("p", { className: "sec", style: { fontSize: 13 } }, "70 or more: the bank can place a 24-hour hold and the officer confirms or rejects it. 40 to 69: a warning call. Below 40: leave alone. Freezing is officer-only."))))
 }
 
-const PAGES = { inbox: Inbox, trail: Trail, accounts: Radar, prevent: Calls, holds: Holds, action: Actions, audit: Audit, crypto: Crypto, model: Model };
+const PAGES = { inbox: Inbox, trail: Trail, accounts: Radar, prevent: Calls, holds: Holds, action: Actions, audit: Audit, model: Model };
 export { SettingsCard, Offline };
 export default function OfficerPage({ page }) {
  const C = PAGES[page];
