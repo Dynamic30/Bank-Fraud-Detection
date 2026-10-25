@@ -8,12 +8,17 @@
     try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; }
   }
   var saved = read();
-  // voice = the language of the narration, text = the language of the words on the card, muted = narration silent
-  var state = { voice: clean(saved.voice, ["en", "hi"], "en"), text: clean(saved.text, ["en", "hi"], "en"), muted: !!saved.muted };
+  // voice = the language of the narration, text = the language of the words on the card, muted = narration silent,
+  // rate = how fast the narration plays; never faster than 1.5x
+  var RATES = [1, 1.25, 1.5];
+  var state = { voice: clean(saved.voice, ["en", "hi"], "en"), text: clean(saved.text, ["en", "hi"], "en"), muted: !!saved.muted,
+    rate: clean(Number(saved.rate), RATES, 1) };
   var listeners = [];
 
   function set(patch) {
     state = Object.assign({}, state, patch);
+    state.rate = clean(Number(state.rate), RATES, 1);
+    if (audio) fast(audio);
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
     listeners.forEach(function (fn) { fn(); });
   }
@@ -32,8 +37,11 @@
 
   // one audio element for the whole tour: browsers let it keep playing once it was started by a click
   var audio = null, token = 0, started = false; // started: card 1 was already started by the click in the pop-up
+  // a new src resets playbackRate to defaultPlaybackRate, so set both
+  function fast(a) { a.defaultPlaybackRate = state.rate; a.playbackRate = state.rate; }
   function el() {
     if (!audio) audio = new Audio();
+    fast(audio);
     return audio;
   }
   function src(lang, n) { return "./assets/tour/" + lang + "-" + (n < 9 ? "0" : "") + (n + 1) + ".mp3"; }
@@ -47,6 +55,7 @@
     a.onended = finish;
     a.onerror = later;
     a.muted = state.muted;
+    fast(a);
     if (started && n === 0) {  // already playing from the click: just attach to it
       started = false;
       if (a.ended) setTimeout(finish, 0);
@@ -55,6 +64,7 @@
     var want = new URL(src(state.voice, n), location.href).href;
     if (a.src !== want) a.src = want;
     else if (a.ended) a.currentTime = 0;
+    fast(a);
     var p = a.play();
     if (p && p.catch) p.catch(later);
   }
@@ -117,6 +127,7 @@
     pause: function () { if (audio) audio.pause(); },
     resume: function () { if (audio && audio.src && !audio.ended) { var p = audio.play(); if (p && p.catch) p.catch(function () {}); } },
     audio: function () { return audio; },
+    rates: RATES,
     choose: choose
   };
 })();

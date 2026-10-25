@@ -7,8 +7,8 @@ const API = window.PeechaAPI;
 const GAP = 1200;
 
 const LABEL = {
- en: { pause: "Pause", resume: "Resume", back: "Back", next: "Next", sound: "Sound on", muted: "Muted", exit: "Exit tour", finish: "Finish", other: "हिन्दी", otherTip: "Show the words in Hindi" },
- hi: { pause: "रोकें", resume: "चलाएँ", back: "पीछे", next: "आगे", sound: "आवाज़ चालू", muted: "म्यूट", exit: "दौरा बंद करें", finish: "समाप्त", other: "English", otherTip: "शब्द अंग्रेज़ी में दिखाएँ" }
+ en: { pause: "Pause", resume: "Resume", back: "Back", next: "Next", sound: "Sound on", muted: "Muted", exit: "Exit tour", finish: "Finish", other: "हिन्दी", otherTip: "Show the words in Hindi", speed: "Voice speed" },
+ hi: { pause: "रोकें", resume: "चलाएँ", back: "पीछे", next: "आगे", sound: "आवाज़ चालू", muted: "म्यूट", exit: "दौरा बंद करें", finish: "समाप्त", other: "English", otherTip: "शब्द अंग्रेज़ी में दिखाएँ", speed: "आवाज़ की गति" }
 };
 
 // wait (at most a few seconds) until the app is signed in and has loaded its data
@@ -98,6 +98,7 @@ export default function Tour() {
    n > 0 && h("button", { className: "btn ghost sm", onClick: () => go(n - 1) }, "← " + L.back),
    !isLast && h("button", { className: "btn ghost sm", onClick: () => go(n + 1) }, L.next + " →"),
    h("button", { className: "btn ghost sm", onClick: () => T.set({ muted: !cfg.muted }), "aria-pressed": cfg.muted, title: cfg.muted ? L.muted : L.sound }, cfg.muted ? "🔇 " + L.muted : "🔊 " + L.sound),
+   h("button", { className: "btn ghost sm", onClick: () => T.set({ rate: T.rates[(T.rates.indexOf(cfg.rate) + 1) % T.rates.length] }), title: L.speed, "aria-label": `${L.speed}: ${cfg.rate}x` }, `⏩ ${cfg.rate}×`),
    h("button", { className: "btn ghost sm", onClick: () => T.set({ text: lang === "en" ? "hi" : "en" }), title: L.otherTip, "aria-label": L.otherTip }, "A/अ " + L.other),
    h("button", { className: "btn sm " + (isLast ? "" : "ghost"), onClick: exit }, isLast ? L.finish : L.exit)))
 }
