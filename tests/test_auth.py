@@ -29,3 +29,14 @@ def test_api_needs_a_known_active_user(client):
 def test_banks_open_to_every_role(client):
     r = client.get("/api/banks", headers=CONSUMER1)
     assert r.status_code == 200 and "SBI" in [b["id"] for b in r.json()]
+
+
+def test_every_bank_has_a_working_analyst_and_admin(client, sql):
+    banks = [r["id"] for r in sql("SELECT id FROM banks").fetchall()]
+    assert len(banks) == 22
+    for bank in banks:
+        users = sql("SELECT email, role FROM app_users WHERE bank_id = %s AND status = 'active'", (bank,)).fetchall()
+        assert {u["role"] for u in users} >= {"bank_analyst", "bank_admin"}, bank
+        for u in users:
+            r = client.post("/api/login", json={"email": u["email"]})
+            assert r.status_code == 200 and r.json()["bank_id"] == bank
