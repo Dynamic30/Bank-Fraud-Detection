@@ -197,7 +197,8 @@ def mask_audit(user: User, r: dict) -> dict:
 
 
 MASKERS = {"complaint": mask_complaint, "payment": mask_payment, "trail": mask_trail, "account": mask_account,
-           "mule": mask_mule, "hold": mask_hold, "call": mask_call, "action": mask_action, "audit": mask_audit}
+           "mule": mask_mule, "hold": mask_hold, "proposal": mask_hold, "call": mask_call, "action": mask_action,
+           "audit": mask_audit}
 
 
 def mask(user: User, resource: str, data):

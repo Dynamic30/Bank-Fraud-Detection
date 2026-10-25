@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Iterator, NamedTuple
 
 from fastapi import HTTPException, Query
-from psycopg import Connection
+from psycopg import Connection, connect
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool, PoolTimeout
 
@@ -40,6 +40,11 @@ def db_up() -> bool:
         return True
     except Exception:
         return False
+
+
+def pipeline_conn() -> Connection:
+    # default tuple rows: pipeline code reads rows by position, the pool above returns dicts
+    return connect(os.environ["APP_DATABASE_URL"], options="-c timezone=UTC")
 
 
 def get_conn() -> Iterator[Connection]:
