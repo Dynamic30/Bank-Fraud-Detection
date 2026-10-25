@@ -220,13 +220,11 @@ class Acct:
         if not recent:
             return
         debits = [t.ts for t in self.db]
-        opened = datetime.combine(self.a["opened_on"], datetime.min.time()) if self.a.get("opened_on") else None
         for t in sorted(recent, key=attrgetter("ts")):
             before = [ts for ts in debits if ts < t.ts]
-            last = max(before) if before else opened
-            if last is None:
+            if not before:
                 continue
-            gap = (t.ts - last) / D
+            gap = (t.ts - max(before)) / D
             after = sum(x.amt for x in self.cr if t.ts <= x.ts <= t.ts + 7 * D)
             if gap >= 365 and after >= 25000:
                 return ("high" if gap >= 730 else "medium"), dict(d=round(gap), x=money(after)), {}

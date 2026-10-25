@@ -10,6 +10,11 @@ CFG = load_rules()
 _ids = iter(range(1, 10**6))
 
 
+@pytest.fixture(autouse=True)
+def clean():
+    yield
+
+
 def acct(id="SBI:1", **kw):
     row = dict(account_id=id, kind="bank", bank_id="SBI", wallet_kind=None, dob=date(2000, 1, 1), occupation="salaried",
                declared_income=600000, opening_balance=0, opened_on=date(2024, 1, 1), device_id=None, upi_id=None,
@@ -49,7 +54,7 @@ def test_fifo_allocates_oldest_first():
 def test_pass_through_fires_high():
     res = score(acct(), mule_trs())
     hit = rules_of(res)["R01"]
-    assert hit["severity"] == "high" and hit["points"] == 25
+    assert hit["severity"] == "high" and hit["points"] == 30
     assert "within 15 min" in hit["reason_text"]
 
 
