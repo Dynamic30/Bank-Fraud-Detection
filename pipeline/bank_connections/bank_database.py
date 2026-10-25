@@ -8,6 +8,7 @@ IST = timedelta(hours=5, minutes=30)
 BAND = {"LT_25K": 15000, "25K_50K": 37500, "50K_1L": 75000, "GT_1L": 150000}
 RAIL = {"U": "UPI", "I": "IMPS", "N": "NEFT", "R": "RTGS", "A": "ATM"}
 IFSC, HANDLE = {}, {}
+PHONES = {}  # raw phones, in memory and only while phone_of runs: accounts keeps just phone_masked
 
 
 def connect():
@@ -47,6 +48,8 @@ def mask(s):
 
 
 def profile(bank, no, name, dob, occ, income, city, opened, device, vpa, phone, until):
+    if f"{bank}:{no}" in PHONES:
+        PHONES[f"{bank}:{no}"] = phone
     return dict(account_id=f"{bank}:{no}", kind="bank", bank_id=bank, holder_name=name, dob=dob,
                 occupation=occ.lower().replace(" ", "_") if occ else None, declared_income=income, city=city,
                 opened_on=opened, device_id=device, upi_id=vpa, account_no_masked=mask(no), phone_masked=mask(phone),
@@ -336,6 +339,24 @@ def airtel(no, until=None):
         return payments(conn, "AIRTEL", no, until, "airtel")
 
 
+def tron(address, until=None):
+    with connect() as conn:
+        sql = "select tx_hash, asset, from_address, to_address, amount, block_time from crypto_transfers where (from_address = %s or to_address = %s)"
+        txs = conn.execute(sql + (" and block_time <= %s" if until else ""), (address, address) + ((until,) if until else ())).fetchall()
+        known = {a: (kind, exchange) for a, kind, exchange in conn.execute(
+            "select w.address, w.kind, e.name from crypto_wallets w left join crypto_exchanges e on e.exchange_id = w.exchange_id "
+            "where w.address = any(%s)", ([address] + [x for t in txs for x in t[2:4]],))}
+    if address not in known:
+        raise LookupError(f"crypto_wallets: no account {address}")
+    now = datetime.now(UTC).replace(tzinfo=None)
+    accts = [dict(account_id=f"TRON:{a}", kind="wallet", wallet_kind=kind, exchange_name=exchange, source="TRON",
+                  **(dict(fetched_at=now, txns_synced_until=until or now) if a == address else {}))
+             for a, (kind, exchange) in known.items()]
+    out = [dict(source="chain", source_ref=h, from_id=f"TRON:{f}", to_id=f"TRON:{t}", amount=amt, asset=asset, ts=ts,
+                rail="CHAIN", status="done", utr=None, device_id=None) for h, asset, f, t, amt, ts in txs]
+    return accts, out
+
+
 BANKS = {
     "SBI": sbi,
     "PNB": pnb,
@@ -359,6 +380,7 @@ BANKS = {
     "PAYTM": paytm,
     "IPPB": ippb,
     "AIRTEL": airtel,
+    "TRON": tron,
 }
 
 
@@ -379,6 +401,19 @@ def save(app, accounts, transfers):
     if transfers:
         app.cursor().executemany(f"insert into transfers ({', '.join(transfers[0])}) values ({', '.join(f'%({c})s' for c in transfers[0])}) "
                         "on conflict (source, source_ref) do nothing", transfers)
+
+
+def phone_of(account_ref):
+    bank, no = account_ref.split(":", 1)
+    if not IFSC:
+        with app_connect() as app:
+            load_banks(app)
+    PHONES[account_ref] = None
+    try:
+        BANKS[bank](no)
+        return PHONES[account_ref]
+    finally:
+        PHONES.pop(account_ref, None)
 
 
 def pull(account_ref, until=None):
