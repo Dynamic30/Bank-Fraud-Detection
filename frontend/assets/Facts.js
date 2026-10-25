@@ -5,8 +5,8 @@ const h = R.createElement;
 const API = window.PeechaAPI;
 const EVERY = 6000;
 
-let cached = null; // kept once it has loaded; a failure (for example a victim signed in) is retried at the next sign-in
-const load = () => cached ? Promise.resolve(cached) : API.call("GET", "/stats").then(s => (cached = s));
+let cached = null, pending = null; // kept once it has loaded; a failure is forgotten so the next sign-in tries again
+const load = () => cached ? Promise.resolve(cached) : (pending = pending || API.call("GET", "/stats").then(s => (cached = s), err => { pending = null; throw err }));
 
 const plural = (n, one, many) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 function facts(s) {
@@ -22,21 +22,24 @@ function facts(s) {
 
 export default function Facts() {
  const e = useApp();
+ const api = R.useSyncExternalStore(API.subscribe, API.get);
  const [list, setList] = R.useState(cached ? facts(cached) : []);
  const [i, setI] = R.useState(0);
  const [still, setStill] = R.useState(false);
+ const staff = api.status === "live" && api.role !== "consumer";
+ // ask only once the sign-in has finished (a slow server answers /login after the page has drawn), and again if the role changes
  R.useEffect(() => {
-  if (!e.session || !API) return;
+  if (!e.session || !staff) return;
   let on = true;
   load().then(s => on && setList(facts(s)), () => on && setList([]));
   return () => { on = false }
- }, [e.session]);
+ }, [e.session, staff, api.role]);
  R.useEffect(() => {
   if (list.length < 2 || still) return;
   const t = setInterval(() => setI(k => k + 1), EVERY);
   return () => clearInterval(t)
  }, [list.length, still]);
- if (!e.session || list.length === 0) return null;
+ if (!e.session || !staff || list.length === 0) return null;
  const f = list[i % list.length];
  return h("div", { className: "facts", role: "status", "aria-label": "Platform facts", onMouseEnter: () => setStill(true), onMouseLeave: () => setStill(false) },
   h("span", { className: "facts-tag" }, "Live facts"),
