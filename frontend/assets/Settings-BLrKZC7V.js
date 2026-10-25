@@ -24,6 +24,7 @@ function y(t) {
  try {
   t ? localStorage.setItem(m, t) : localStorage.removeItem(m)
  } catch {}
+ window.PeechaAPI && window.PeechaAPI.reset()
 }
 async function w(t) {
  const a = t.replace(/\/+$/, ""),

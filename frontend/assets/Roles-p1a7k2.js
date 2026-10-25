@@ -20,6 +20,26 @@ import {
  D as ROLES
 } from "./index-DAvlYmAS.js";
 const h = R.createElement;
+/* live backend data for the consumer screens (assets/api.js); status "live" = use it, anything else = demo engine */
+const API = window.PeechaAPI || {
+ get: () => ({ status: "offline", items: [] }),
+ subscribe: () => () => {},
+ refresh: () => Promise.resolve(),
+ file: () => Promise.reject(new Error("backend client missing"))
+};
+
+function useLive() {
+ const s = R.useSyncExternalStore(API.subscribe, API.get);
+ R.useEffect(() => {
+  if (s.status === "idle") API.refresh()
+ }, [s.status]);
+ return s
+}
+const utcDate = ts => ts ? new Date(/Z|[+-]\d\d:?\d\d$/.test(ts) ? ts : ts + "Z") : null;
+const liveWhen = ts => {
+ const d = utcDate(ts);
+ return d ? d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"
+};
 const TONE = {
  requested: "accent",
  active: "med",
@@ -600,6 +620,9 @@ export function FileComplaint() {
   ref: "",
   description: ""
  });
+ const [busy, setBusy] = R.useState(false);
+ const live = useLive(),
+  useBackend = role === "consumer" && live.status === "live";
  const set = k => ev => setF({
   ...f,
   [k]: ev.target.value
@@ -699,9 +722,19 @@ export function FileComplaint() {
    },
    h("button", {
     className: "btn",
-    disabled: !ok,
-    onClick: () => e.fileComplaint(f)
-   }, "Submit complaint"),
+    disabled: !ok || busy,
+    onClick: () => {
+     if (!useBackend) return e.fileComplaint(f);
+     setBusy(true);
+     API.file(f).then(r => {
+      e.close();
+      e.toast(`Complaint ${r.id} filed`)
+     }, err => {
+      setBusy(false);
+      e.toast(`Could not file: ${err.message}`)
+     })
+    }
+   }, busy ? "Submitting…" : "Submit complaint"),
    h("button", {
     className: "btn ghost",
     onClick: e.close
@@ -819,10 +852,103 @@ function CaseCard({
     h("td", null, inrS(l.taint)),
     h("td", null, l.rail)))))));
 }
+function LiveCard({
+ it
+}) {
+ const {
+  c,
+  payments,
+  trail
+ } = it, [det, setDet] = R.useState(false);
+ const tracing = c.status !== "open";
+ return h(Card, {
+   title: c.scam_type,
+   sub: `${c.id} · reported ${liveWhen(c.reported_at)} · ${inr(Number(c.total_lost))} lost`,
+   style: {
+    marginTop: 18
+   }
+  },
+  h(Steps, {
+   items: [
+    ["Filed", true],
+    ["Tracing", tracing],
+    ["Bank notified", c.status === "actioned" || c.status === "closed"],
+    ["Money held", c.status === "closed"]
+   ]
+  }),
+  h("p", {
+   className: "sec",
+   style: {
+    fontSize: 13,
+    marginTop: 12
+   }
+  }, c.status === "open" ? "Received. An officer will start the trace shortly." : trail.length ? `Your money has moved through ${new Set(trail.map(x => x.to_ref)).size} account(s) so far.` : "An officer has started tracing your money."),
+  payments.length > 0 && h("div", {
+   className: "note info"
+  }, `You reported ${payments.length} payment(s) totalling ${inr(payments.reduce((s, p) => s + Number(p.amount), 0))}.`),
+  trail.length > 0 && h("div", {
+   style: {
+    marginTop: 12
+   }
+  }, h("button", {
+   className: "btn ghost sm",
+   onClick: () => setDet(!det)
+  }, det ? "Hide details" : "Details")),
+  det && h("div", {
+   className: "tbl-wrap",
+   style: {
+    marginTop: 10
+   }
+  }, h("table", {
+    className: "tbl"
+   },
+   h("thead", null, h("tr", null, ["Time", "From → To", "Amount of your money", "How"].map((x, i) => h("th", {
+    key: i
+   }, x)))),
+   h("tbody", null, trail.map(l => h("tr", {
+     key: l.id
+    },
+    h("td", {
+     className: "mono nowrap"
+    }, liveWhen(l.ts)),
+    h("td", null, l.from_ref, " → ", l.to_ref),
+    h("td", null, inrS(Number(l.traced_amount))),
+    h("td", null, l.rail)))))));
+}
+
+function LiveMine({
+ items
+}) {
+ const e = useApp();
+ return h(R.Fragment, null,
+  h(PageHead, {
+   title: "My complaints",
+   desc: "See where your complaint stands and where your money is now.",
+   actions: h("button", {
+    className: "btn",
+    onClick: () => e.open("file")
+   }, "＋ File a complaint")
+  }),
+  items.slice().reverse().map(it => h(LiveCard, {
+   key: it.c.id,
+   it
+  })),
+  items.length === 0 && h("div", {
+   style: {
+    marginTop: 18
+   }
+  }, h(Card, {}, h("div", {
+   className: "empty"
+  }, h("b", null, "You have no complaints yet."), h("span", null, "File one and we will start following your money.")))));
+}
 export function Mine() {
  const e = useApp(),
+  live = useLive(),
   cases = e.D.cases,
   mine = e.myFiled || [];
+ if (live.status === "live") return h(LiveMine, {
+  items: live.items
+});
  return h(R.Fragment, null,
   h(PageHead, {
    title: "My complaints",
@@ -1557,12 +1683,37 @@ function filedReportText(e, f) {
  ].join("\n");
 }
 
+function liveReportText({
+ c,
+ payments,
+ trail
+}) {
+ const L = ["PEECHA — COMPLAINT REPORT", "For use when contacting your bank or the police.", "",
+  `Complaint number: ${c.id}`, `Type of scam: ${c.scam_type}`, `Reported: ${liveWhen(c.reported_at)} (${c.filed_via})`, `Name: ${c.name}`, `City: ${c.city||"—"}`,
+  `Amount lost: ${inr(Number(c.total_lost))}`, `When it happened: ${liveWhen(c.fraud_time)}`, "",
+  `STATUS: Filed [done] > Tracing [${c.status!=="open"?"done":"not yet"}] > Bank notified [${c.status==="actioned"||c.status==="closed"?"done":"not yet"}] > Money held [${c.status==="closed"?"done":"not yet"}]`, "",
+  "PAYMENTS FROM YOUR ACCOUNT"
+ ];
+ if (!payments.length) L.push("  None recorded.");
+ for (const p of payments) L.push(`  ${liveWhen(p.paid_at)} · ${inr(Number(p.amount))} · ${p.destination_type==="crypto"?`crypto wallet ${p.wallet_address}`:`reference ${p.utr||p.paid_to_upi_id||p.paid_to_account_no||"—"}`}`);
+ L.push("", "WHAT HAPPENED", `  ${c.incident_description||"—"}`, "", "WHERE YOUR MONEY WENT (other accounts are masked)");
+ if (!trail.length) L.push("  Not traced yet.");
+ for (const l of trail) L.push(`  ${liveWhen(l.ts)} · ${l.from_ref} -> ${l.to_ref} · ${inrS(Number(l.traced_amount))} of your money · ${l.rail}`);
+ return L.join("\n")
+}
+
 function ConsumerReports() {
  const e = useApp(),
+  live = useLive(),
   {
    D
   } = e;
- const items = [...D.cases.map(c => ({
+ const items = live.status === "live" ? live.items.map(it => ({
+  id: it.c.id,
+  title: it.c.scam_type,
+  sub: `${inr(Number(it.c.total_lost))} lost`,
+  text: () => liveReportText(it)
+ })) : [...D.cases.map(c => ({
    id: c.id,
    title: c.type,
    sub: `${inr(c.amount)} lost`,
