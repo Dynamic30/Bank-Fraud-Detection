@@ -56,24 +56,33 @@
     });
   }
 
-  var state = { status: "idle", items: [], user: null, error: null };
-  var listeners = [], inflight = null;
+  var EMAILS = { officer: "meera.baruah@cybercell.example", analyst: "rahul.nair@sbi.example" };
+  function emailFor(role) { return EMAILS[role] || get(EMAIL_KEY) || DEFAULT_EMAIL; }
+
+  var state = { role: "consumer", status: "idle", items: [], error: null };
+  var listeners = [], inflight = null, gen = 0;
   function set(next) { state = Object.assign({}, state, next); listeners.forEach(function (fn) { fn(); }); }
 
   function refresh() {
     if (inflight) return inflight;
+    var mine = ++gen, email = emailFor(state.role);
     set({ status: "loading", error: null });
-    var email = get(EMAIL_KEY) || DEFAULT_EMAIL;
     inflight = (get(USER_KEY) ? Promise.resolve(null) : login(email))
       .then(function () { return loadAll(); })
       .catch(function (err) {
         if (get(USER_KEY) && /unknown user|401/.test(String(err.message))) { put(USER_KEY, ""); return login(email).then(loadAll); }
         throw err;
       })
-      .then(function (items) { set({ status: "live", items: items }); })
-      .catch(function (err) { set({ status: "offline", items: [], error: String(err.message || err) }); })
-      .then(function () { inflight = null; });
+      .then(function (items) { if (mine === gen) set({ status: "live", items: items }); },
+            function (err) { if (mine === gen) set({ status: "offline", items: [], error: String(err.message || err) }); })
+      .then(function () { if (mine === gen) inflight = null; });
     return inflight;
+  }
+
+  // pick the identity for the current screen's role; switching role logs in again as that user
+  function use(role) {
+    if (role && role !== state.role) { put(USER_KEY, ""); inflight = null; gen++; set({ role: role, status: "idle", items: [], error: null }); }
+    if (state.status === "idle") refresh();
   }
 
   function file(f) {
@@ -95,6 +104,8 @@
     get: function () { return state; },
     subscribe: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (x) { return x !== fn; }); }; },
     refresh: refresh,
+    use: use,
+    call: call,
     file: file,
     login: login,
     reset: function () { put(USER_KEY, ""); inflight = null; set({ status: "idle", items: [], error: null }); }

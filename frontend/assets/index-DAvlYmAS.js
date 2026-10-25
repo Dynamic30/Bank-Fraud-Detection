@@ -11911,6 +11911,32 @@ const RolesLz = q => H.lazy(() => $e(() => import("./Roles-p1a7k2.js").then(m =>
  CasesPg = RolesLz("Cases"),
  ReportsPg = RolesLz("Reports"),
  FilePg = RolesLz("FileComplaint");
+/* officer screens: use the live backend pages (Officer.js) when the API is reachable, else the demo page */
+const OfficerLz = H.lazy(() => $e(() => import("./Officer.js"), [], import.meta.url)),
+ SettingsLiveLz = H.lazy(() => $e(() => import("./Officer.js").then(m => ({
+  default: m.SettingsCard
+ })), [], import.meta.url)),
+ liveGate = (Demo, page) => function LiveGate() {
+  const e = xt(),
+   A = window.PeechaAPI,
+   s = H.useSyncExternalStore(A.subscribe, A.get),
+   role = e.user ? e.user.key : "";
+  H.useEffect(() => {
+   role === "officer" && A.use(role)
+  }, [role, s.status]);
+  if (!(role === "officer" && s.role === "officer" && s.status === "live")) return S.jsx(Demo, {});
+  return S.jsx(H.Suspense, {
+   fallback: S.jsx("div", {
+    className: "empty",
+    children: "Loading…"
+   }),
+   children: page === "settings" ? S.jsxs(H.Fragment, {
+    children: [S.jsx(Demo, {}), S.jsx(SettingsLiveLz, {})]
+   }) : S.jsx(OfficerLz, {
+    page
+   })
+  })
+ };
 const nu = [
   ["inbox", "▤", "Case inbox"],
   ["trail", "⟿", "Money trail"],
@@ -11932,17 +11958,17 @@ const nu = [
   audit: "Audit",
   settings: "Settings"
  },
- uh = {
-  inbox: CasesPg,
-  trail: TrailPg,
-  accounts: Xp,
+uh = {
+  inbox: liveGate(CasesPg, "inbox"),
+  trail: liveGate(TrailPg, "trail"),
+  accounts: liveGate(Xp, "accounts"),
   crypto: bp,
-  action: HoldsPg,
-  prevent: Zp,
+  action: liveGate(HoldsPg, "action"),
+  prevent: liveGate(Zp, "prevent"),
   model: Jp,
-  audit: eh,
-  settings: th,
-  holds: HoldsPg,
+  audit: liveGate(eh, "audit"),
+  settings: liveGate(th, "settings"),
+  holds: liveGate(HoldsPg, "holds"),
   mine: MinePg,
   reports: ReportsPg
  };
