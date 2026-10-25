@@ -5,4 +5,4 @@ faker>=24
 fastapi
 uvicorn
 pydantic>=2
-anthropic
+adaption
