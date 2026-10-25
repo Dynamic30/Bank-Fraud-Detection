@@ -87,7 +87,12 @@ function l({
 
 function S() {
  const [t, a] = u.useState(v()), [n, o] = u.useState(null), [r, i] = u.useState(!1), s = async () => {
-  i(!0), y(t.trim()), o(t.trim() ? await w(t.trim()) : null), i(!1)
+  const x = t.trim();
+  if (x && !window.PeechaAPI.cleanUrl(x)) return o({
+   ok: !1,
+   msg: "That is not a web address. Enter the app's https:// URL (not a database connection string), or leave it empty to use this site."
+  });
+  i(!0), y(x), o(x ? await w(x) : null), i(!1)
  };
  return e.jsxs(c, {
   title: "Backend",

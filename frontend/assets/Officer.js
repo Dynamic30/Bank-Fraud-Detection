@@ -316,7 +316,7 @@ function SettingsCard() {
 /* ---------------------------------------------------------- Offline panel */
 function Offline({ state }) {
  const e = useApp();
- const base = (() => { try { return localStorage.getItem("pc-backend-url") || "" } catch { return "" } })();
+ const base = API.baseUrl ? API.baseUrl() : "";
  if (!state || state.status === "idle" || state.status === "loading") return h("div", { className: "empty", style: { padding: 40 } }, h("b", null, "Connecting to the backend…"));
  return h(R.Fragment, null,
   h(PageHead, { title: "Backend not reachable", desc: "Peecha shows live data only. Start the backend, or point Peecha at it in Settings." }),

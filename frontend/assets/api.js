@@ -8,7 +8,17 @@
 
   function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
   function put(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} }
-  function base() { return get(URL_KEY).replace(/\/+$/, ""); }
+  // only a plain http(s) address without credentials is a usable backend URL (a database connection string is not)
+  function cleanUrl(v) {
+    try {
+      var u = new URL(String(v || "").trim());
+      if ((u.protocol !== "http:" && u.protocol !== "https:") || u.username || u.password) return "";
+      return (u.origin + u.pathname).replace(/\/+$/, "");
+    } catch (e) { return ""; }
+  }
+  // drop a bad value saved earlier (for example a pasted connection string) instead of using or showing it
+  if (get(URL_KEY) && !cleanUrl(get(URL_KEY))) put(URL_KEY, "");
+  function base() { return cleanUrl(get(URL_KEY)); }
 
   function withUser(init) {
     var uid = get(USER_KEY);
@@ -147,6 +157,8 @@
     get: function () { return state; },
     subscribe: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (x) { return x !== fn; }); }; },
     banks: BANKS,
+    cleanUrl: cleanUrl,
+    baseUrl: base,
     pick: { case: null, account: null },
     refresh: refresh,
     use: use,
