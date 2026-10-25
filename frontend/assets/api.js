@@ -108,6 +108,7 @@
   window.PeechaAPI = {
     get: function () { return state; },
     subscribe: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (x) { return x !== fn; }); }; },
+    pick: { case: null, account: null },
     refresh: refresh,
     use: use,
     call: call,
