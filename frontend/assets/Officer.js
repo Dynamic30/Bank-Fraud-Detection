@@ -19,6 +19,7 @@ const when = ts => {
 };
 const money = v => v == null ? "—" : inr(Number(v));
 const STATUS_TONE = { open: "accent", tracing: "info", actioned: "rec-solid", closed: "neutral", requested: "accent", active: "med", confirmed: "rec-solid", expired: "neutral", rejected: "neutral", released: "neutral", draft: "accent", approved: "info", sent: "rec", executed: "rec-solid" };
+const COMPUTED = ["fifo"]; // trail methods the tracer writes
 const scoreTone = s => s >= 70 ? "high" : s >= 40 ? "med" : "neutral";
 const pill = s => h(Pill, { tone: STATUS_TONE[s] || "neutral" }, s);
 
@@ -97,7 +98,10 @@ function Trail() {
    h("div", { className: "btn-row" },
     h("select", { className: "input", value: id, onChange: ev => { API.pick.case = ev.target.value; setId(ev.target.value) } },
      items.map(i => h("option", { key: i.c.id, value: i.c.id }, `${i.c.id} · ${i.c.scam_type} · ${money(i.c.total_lost)}`))),
-    ["fifo", "lifo", "prorata"].map(m => h("button", { key: m, className: "btn sm " + (m === method ? "" : "ghost"), onClick: () => setMethod(m) }, m.toUpperCase()))),
+    ["fifo", "lifo", "prorata"].map(m => h("button", {
+     key: m, className: "btn sm " + (m === method ? "" : "ghost"), disabled: !COMPUTED.includes(m),
+     title: COMPUTED.includes(m) ? "" : "Not computed yet: the tracer only follows FIFO", onClick: () => setMethod(m)
+    }, m.toUpperCase()))),
    it && h("div", { className: "kpis", style: { marginTop: 14 } },
     h(Kpi, { label: "Amount lost", value: money(it.c.total_lost) }),
     h(Kpi, { label: "Traced (first hop)", value: money(traced), tone: "rec" }),
@@ -182,12 +186,27 @@ function Calls() {
     calls.data.map(c => ({ cells: [when(c.called_at), h("span", { className: "mono" }, c.account_id), c.outcome, c.reply_label || "—", c.called_by || "—"] }))) : null)))
 }
 
+/* AI hold suggestions, computed by the backend per complaint (GET /complaints/{id}/hold-proposals) */
+function useProposals(items, tick) {
+ const [st, setSt] = R.useState({ rows: [], loading: true });
+ const key = items.filter(i => i.c.status !== "closed").map(i => i.c.id).join(",");
+ R.useEffect(() => {
+  let on = true;
+  const ids = key ? key.split(",").slice(0, 30) : [];
+  Promise.all(ids.map(id => API.call("GET", `/complaints/${id}/hold-proposals`).catch(() => []))).then(r => on && setSt({ rows: r.flat(), loading: false }));
+  return () => { on = false }
+ }, [key, tick]);
+ return st
+}
+
 /* ------------------------------------------------------------------ Holds */
 function Holds() {
  const e = useApp(),
   officer = e.user.key === "officer",
-  holds = useGet("/holds?limit=200");
- const run = useDo(e, () => holds.reload());
+  holds = useGet("/holds?limit=200"),
+  [tick, setTick] = R.useState(0),
+  sug = useProposals(API.get().items, tick);
+ const run = useDo(e, () => { holds.reload(); setTick(x => x + 1) });
  const [f, setF] = R.useState({ account_id: "", reason: "", amount: "", complaint_id: "" });
  const decide = (id, verb) => run(`Hold ${verb === "execute" ? "placed" : verb + "ed"}`, () => API.call("POST", `/holds/${id}/${verb}`, {}));
  return h(R.Fragment, null,
@@ -204,6 +223,17 @@ function Holds() {
      account_id: f.account_id.trim(), reason: f.reason.trim(), complaint_id: f.complaint_id.trim() || null, amount: f.amount ? Number(f.amount) : null
     })).then(r => r && setF({ account_id: "", reason: "", amount: "", complaint_id: "" }))
    }, officer ? "Request hold" : "Place hold"))),
+  h("div", { style: { marginTop: 18 } }, h(Card, { title: "Suggested holds", sub: "Trail accounts that still hold traced money and score at or above the hold threshold. Computed, not stored." },
+   sug.loading ? h("div", { className: "note info" }, "Loading…") : sug.rows.length === 0 ? Empty("No suggestions.", "Nothing on a trail is above the threshold right now.") :
+   Table([["Complaint"], ["Account"], ["Bank"], ["Score", "right"], ["Traced", "right", "nowrap"], ["Why"], [""]], sug.rows.map(x => ({
+    cells: [x.complaint_id, h("span", { className: "mono" }, x.account_id), x.bank_id, h(Pill, { tone: scoreTone(x.score) }, x.score.toFixed(0)), money(x.amount), x.reason,
+     h("button", {
+      className: "btn hold sm",
+      onClick: () => run(officer ? "Hold requested" : "Hold placed", () => API.call("POST", "/holds", {
+       account_id: x.account_id, reason: x.reason, complaint_id: x.complaint_id, amount: x.amount, score_at_time: x.score, basis: "ai_draft"
+      }))
+     }, officer ? "Request hold" : "Place hold")]
+   }))))),
   h("div", { style: { marginTop: 18 } }, h(Card, { title: "All holds" },
    h(Status, { st: holds }),
    holds.data && holds.data.length === 0 ? Empty("No holds yet.", "") : holds.data ? Table([["#", "right"], ["Account"], ["Complaint"], ["Status"], ["Amount", "right", "nowrap"], ["Expires", "", "nowrap"], ["Reason"], [""]],
