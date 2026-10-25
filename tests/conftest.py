@@ -33,7 +33,7 @@ def db_url():
 def client(db_url):
     patch = pytest.MonkeyPatch()
     patch.setenv("APP_DATABASE_URL", db_url)
-    patch.setenv("ANTHROPIC_API_KEY", "")
+    patch.setenv("LLM_API_KEY", "")
     from backend.app.main import app
     with TestClient(app) as c:
         yield c
