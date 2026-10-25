@@ -11982,7 +11982,14 @@ const OfficerLz = H.lazy(() => $e(() => import("./Officer.js"), [], import.meta.
    (key === "officer" || key === "analyst") && A.use(role)
   }, [role, s.status]);
   if (key !== "officer" && key !== "analyst") return S.jsx(Demo, {});
-  if (!(s.role === role && s.status === "live")) return page === "settings" && s.status === "offline" ? S.jsx(Demo, {}) : S.jsx(H.Suspense, {
+  const isLive = s.role === role && s.status === "live";
+  if (page === "settings") return S.jsx(H.Suspense, {
+   fallback: null,
+   children: S.jsxs(H.Fragment, {
+    children: [S.jsx(Demo, {}), isLive && S.jsx(SettingsLiveLz, {})]
+   })
+  });
+  if (!isLive) return S.jsx(H.Suspense, {
    fallback: null,
    children: S.jsx(OfflineLz, {
     state: s.role === role ? s : null
@@ -11993,9 +12000,7 @@ const OfficerLz = H.lazy(() => $e(() => import("./Officer.js"), [], import.meta.
     className: "empty",
     children: "Loading…"
    }),
-   children: page === "settings" ? S.jsxs(H.Fragment, {
-    children: [S.jsx(Demo, {}), S.jsx(SettingsLiveLz, {})]
-   }) : S.jsx(OfficerLz, {
+   children: S.jsx(OfficerLz, {
     page
    })
   })
