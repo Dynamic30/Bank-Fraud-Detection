@@ -11433,7 +11433,12 @@ function Vp() {
       color: "#14325E",
       borderColor: "#14325E"
      },
-     onClick: n,
+     onClick: () => {
+      try {
+       new Audio("./assets/peecha-intro-hi.mp3").play().catch(() => {})
+      } catch {}
+      n()
+     },
      children: "▶ Take the 3-minute guided demo"
     }), S.jsx("p", {
      style: {
