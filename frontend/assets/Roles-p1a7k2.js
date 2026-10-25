@@ -629,6 +629,7 @@ export function FileComplaint() {
   description: ""
  });
  const [busy, setBusy] = R.useState(false);
+ const [err, setErr] = R.useState("");
  const live = useLive(),
   useBackend = live.status === "live";
  const set = k => ev => setF({
@@ -736,6 +737,23 @@ export function FileComplaint() {
    value: f.description,
    onChange: set("description")
   }))),
+  !useBackend ? h("div", {
+   className: "note change",
+   style: {
+    marginTop: 14
+   }
+  }, live.status === "offline" ? `Cannot reach the server, so nothing can be submitted. ${live.error || ""}` : "Connecting to the server…") : !ok ? h("div", {
+   className: "note info",
+   style: {
+    marginTop: 14
+   }
+  }, "To submit, still needed: " + [!f.name.trim() && "your name", !(Number(f.amount) > 0) && "the amount lost", !f.victimAccount.trim() && "the account the money left from", !f.ref.trim() && "the UTR or UPI ID"].filter(Boolean).join(", ")) : null,
+  err && h("div", {
+   className: "note change",
+   style: {
+    marginTop: 14
+   }
+  }, `Could not file the complaint: ${err}`),
   h("div", {
     className: "btn-row",
     style: {
@@ -748,12 +766,14 @@ export function FileComplaint() {
     onClick: () => {
      if (!useBackend) return;
      setBusy(true);
+     setErr("");
      API.file(f).then(r => {
       e.close();
       e.toast(`Complaint ${r.id} filed`)
-     }, err => {
+     }, error => {
       setBusy(false);
-      e.toast(`Could not file: ${err.message}`)
+      setErr(error.message);
+      e.toast(`Could not file: ${error.message}`)
      })
     }
    }, busy ? "Submitting…" : "Submit complaint"),
