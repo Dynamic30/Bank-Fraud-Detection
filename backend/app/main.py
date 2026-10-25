@@ -37,5 +37,15 @@ app.include_router(auth.router, prefix="/api")
 for module in (complaints, accounts, mules, holds, actions, calls, audit, settings, banks, ask, tron):
     app.include_router(module.router, prefix="/api", dependencies=[Depends(auth.current_user)])
 
+class RevalidatingStaticFiles(StaticFiles):
+    """The built files keep the same names between deploys, so a browser must check with the server (cheap: an ETag
+    answers 304) before reusing one. Otherwise a reload can mix old and new files and the page breaks."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 if FRONTEND.is_dir():
-    app.mount("/", StaticFiles(directory=FRONTEND, html=True))
+    app.mount("/", RevalidatingStaticFiles(directory=FRONTEND, html=True))
