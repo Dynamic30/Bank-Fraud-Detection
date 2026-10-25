@@ -46,6 +46,12 @@ def require_bank_writer(user: User, bank_id: str) -> None:
         raise HTTPException(403, "needs a bank user with hold or admin access at the account's bank")
 
 
+def require_executor(user: User, bank_id: str) -> None:
+    """The bank places and releases holds; the cyber-cell officer may do it on the bank's behalf."""
+    if not user.is_officer:
+        require_bank_writer(user, bank_id)
+
+
 def load_hold(conn, hold_id: int) -> dict:
     row = conn.execute("SELECT * FROM holds WHERE id = %s FOR UPDATE", (hold_id,)).fetchone()
     if row is None:
@@ -150,7 +156,7 @@ def reject_hold(hold_id: int, body: DecisionIn | None = None, user: User = Depen
 def release_hold(hold_id: int, user: User = Depends(current_user), conn=Depends(get_conn)):
     expire_holds(conn)
     hold = load_hold(conn, hold_id)
-    require_bank_writer(user, hold["bank_id"])
+    require_executor(user, hold["bank_id"])
     return mask(user, "hold", move(conn, user, hold, "released", ("requested", "active", "confirmed"), "RELEASED"))
 
 
@@ -158,7 +164,7 @@ def release_hold(hold_id: int, user: User = Depends(current_user), conn=Depends(
 def execute_hold(hold_id: int, user: User = Depends(current_user), conn=Depends(get_conn)):
     expire_holds(conn)
     hold = load_hold(conn, hold_id)
-    require_bank_writer(user, hold["bank_id"])
+    require_executor(user, hold["bank_id"])
     row = move(conn, user, hold, "active", ("requested",), "EXECUTED",
                "executed_by = %(uid)s, executed_at = %(now)s, expires_at = %(exp)s",
                exp=utcnow() + timedelta(hours=HOLD_HOURS))

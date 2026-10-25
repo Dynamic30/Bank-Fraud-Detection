@@ -20,6 +20,11 @@ const when = ts => {
 };
 const money = v => v == null ? "—" : inr(Number(v));
 const STATUS_TONE = { open: "accent", tracing: "info", actioned: "rec-solid", closed: "neutral", requested: "accent", active: "med", confirmed: "rec-solid", expired: "neutral", rejected: "neutral", released: "neutral", draft: "accent", approved: "info", sent: "rec", executed: "rec-solid" };
+/* one-click freeze: draft a freeze request to the bank and approve it (the officer's click is the decision); Send is in Action pack */
+const freezeRequest = a => API.call("POST", "/actions", {
+ complaint_id: a.complaint_id, kind: "freeze", target: `${a.bank_id} nodal officer`, targets: [{ account_id: a.account_id, amount: a.amount }],
+ draft_text: `To the Nodal Officer, ${a.bank_id}.\n\nComplaint ${a.complaint_id}: please freeze account ${a.account_id}.\n${a.amount ? `Traced fraud money in the account: ${money(a.amount)}.\n` : ""}Reason: ${a.reason}.\n\nPlease confirm once the account is frozen.`
+}).then(x => API.call("POST", `/actions/${x.id}/approve`, {}));
 const COMPUTED = ["fifo"]; // trail methods the tracer writes
 const scoreTone = s => s >= 70 ? "high" : s >= 40 ? "med" : "neutral";
 const pill = s => h(Pill, { tone: STATUS_TONE[s] || "neutral" }, s);
@@ -361,7 +366,14 @@ function Radar() {
     h("pre", { className: "mono", style: { whiteSpace: "pre-wrap", fontSize: 12, marginTop: 12 } }, a.reasons ? JSON.stringify(a.reasons, null, 2) : "No score reasons yet."),
     a.kind === "bank" && h("div", { className: "btn-row" }, h("button", {
      className: "btn hold sm", onClick: () => run("Hold requested", () => API.call("POST", "/holds", { account_id: sel, reason: `Mule score ${a.score == null ? "n/a" : Number(a.score).toFixed(0)}`, score_at_time: a.score }))
-    }, officer ? "Request hold" : "Place 24h hold"))))),
+    }, officer ? "Request hold" : "Place 24h hold"),
+    officer && a.kind === "bank" && (API.pick.case || (API.get().items[0] || { c: {} }).c.id) && h("button", {
+     className: "btn danger sm", title: "Draft and approve a freeze request to the bank",
+     onClick: () => run("Freeze request approved. Press Send in Action pack", () => freezeRequest({
+      complaint_id: API.pick.case || API.get().items[0].c.id, account_id: sel, bank_id: a.bank_id, amount: null,
+      reason: `Mule score ${a.score == null ? "n/a" : Number(a.score).toFixed(0)}`
+     }).then(r => { e.go("action"); return r }))
+    }, "Freeze"))))),
   h("div", { style: { marginTop: 18 } }, h(Card, { title: "Flagged mules", sub: "mule_accounts" },
    !mules.data || mules.data.length === 0 ? Empty("Nothing flagged yet.", "") :
    Table([["Account"], ["Bank"], ["Status"], ["Source"], ["First flagged", "", "nowrap"]], mules.data.map(m => ({
@@ -442,12 +454,16 @@ function Holds() {
    sug.loading ? h("div", { className: "note info" }, "Loading…") : sug.rows.length === 0 ? Empty("No suggestions.", "Nothing on a trail is above the threshold right now.") :
    Table([["Complaint"], ["Account"], ["Bank"], ["Score", "right"], ["Traced", "right", "nowrap"], ["Why"], [""]], sug.rows.map(x => ({
     cells: [x.complaint_id, h("span", { className: "mono" }, x.account_id), x.bank_id, h(Pill, { tone: scoreTone(x.score) }, x.score.toFixed(0)), money(x.amount), x.reason,
-     h("button", {
+     h("div", { className: "btn-row" }, h("button", {
       className: "btn hold sm",
       onClick: () => run(officer ? "Hold requested" : "Hold placed", () => API.call("POST", "/holds", {
        account_id: x.account_id, reason: x.reason, complaint_id: x.complaint_id, amount: x.amount, score_at_time: x.score, basis: "ai_draft"
       }))
-     }, officer ? "Request hold" : "Place hold")]
+     }, officer ? "Request hold" : "Place hold"),
+     officer && h("button", {
+      className: "btn danger sm", title: "Draft and approve a freeze request to the bank",
+      onClick: () => run("Freeze request approved. Press Send in Action pack", () => freezeRequest(x).then(r => { e.go("action"); return r }))
+     }, "Freeze"))]
    }))))),
   h("div", { style: { marginTop: 18 } }, h(Card, { title: "All holds" },
    h(Status, { st: holds }),
@@ -456,8 +472,8 @@ function Holds() {
      h("div", { className: "btn-row" },
       officer && x.status === "active" && h("button", { className: "btn approve sm", onClick: () => decide(x.id, "confirm") }, "Confirm"),
       officer && (x.status === "requested" || x.status === "active") && h("button", { className: "btn danger sm", onClick: () => decide(x.id, "reject") }, "Reject"),
-      !officer && x.status === "requested" && h("button", { className: "btn hold sm", onClick: () => decide(x.id, "execute") }, "Place hold"),
-      !officer && ["requested", "active", "confirmed"].includes(x.status) && h("button", { className: "btn ghost sm", onClick: () => decide(x.id, "release") }, "Release"))] }))) : null)))
+      x.status === "requested" && h("button", { className: "btn hold sm", onClick: () => decide(x.id, "execute") }, "Place hold"),
+      ["requested", "active", "confirmed"].includes(x.status) && h("button", { className: "btn ghost sm", onClick: () => decide(x.id, "release") }, "Release"))] }))) : null)))
 }
 
 /* ---------------------------------------------------------------- Actions */
