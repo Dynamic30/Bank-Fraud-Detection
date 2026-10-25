@@ -9,7 +9,7 @@ services:
       - "5433:5432"
     volumes:
       - bankdata:/var/lib/postgresql/data
-      - ./backend/bank_dummy_db.sql:/docker-entrypoint-initdb.d/bank.sql:ro
+      - ./backend/dummy_sources.sql:/docker-entrypoint-initdb.d/dummy_sources.sql:ro
 
 volumes:
   bankdata:
