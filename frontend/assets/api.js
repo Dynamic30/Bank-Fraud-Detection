@@ -61,8 +61,9 @@
       return Promise.all(list.map(function (c) {
         return Promise.all([
           call("GET", "/complaints/" + c.id + "/payments").catch(function () { return []; }),
-          call("GET", "/complaints/" + c.id + "/trail?method=fifo").catch(function () { return []; })
-        ]).then(function (r) { return { c: c, payments: r[0], trail: r[1] }; });
+          call("GET", "/complaints/" + c.id + "/trail?method=fifo").catch(function () { return []; }),
+          call("GET", "/complaints/" + c.id + "/trace").catch(function () { return null; })
+        ]).then(function (r) { return { c: c, payments: r[0], trail: r[1], trace: r[2] }; });
       }));
     });
   }
@@ -141,17 +142,32 @@
     return call("POST", "/complaints", body).then(function (r) { return refresh().then(function () { return r; }); });
   }
 
-  // a new complaint is traced in the background: keep refreshing until its first trace has finished (10 min cap)
-  function awaitingTrace() {
-    var cutoff = Date.now() - 10 * 60 * 1000;
-    return state.items.some(function (i) {
-      var c = i.c, at = Date.parse(/Z|[+-]\d\d:?\d\d$/.test(c.reported_at) ? c.reported_at : c.reported_at + "Z");
-      return (c.status === "open" || c.status === "tracing") && !c.last_traced_at && at > cutoff;
+  // traces run in the background: while any is running or about to start, ask for just their status every few seconds,
+  // and reload everything once one has finished so the new trail shows up
+  var pending = function (i) { return i.trace && (i.trace.state === "running" || i.trace.state === "waiting"); };
+  function pollTraces() {
+    var todo = state.items.filter(pending);
+    if (!todo.length) return Promise.resolve();
+    return Promise.all(todo.map(function (i) {
+      return call("GET", "/complaints/" + i.c.id + "/trace").then(function (t) { return [i.c.id, t]; }, function () { return null; });
+    })).then(function (r) {
+      var fresh = {};
+      r.forEach(function (x) { if (x) fresh[x[0]] = x[1]; });
+      var finished = todo.some(function (i) { return fresh[i.c.id] && !pending({ trace: fresh[i.c.id] }); });
+      set({ items: state.items.map(function (i) { return fresh[i.c.id] ? Object.assign({}, i, { trace: fresh[i.c.id] }) : i; }) });
+      return finished ? refresh() : null;
     });
   }
-  setInterval(function () {
-    if (state.status === "live" && !document.hidden && awaitingTrace()) refresh();
-  }, 15000);
+  setInterval(function () { if (state.status === "live" && !document.hidden) pollTraces(); }, 4000);
+
+  function retrace(id) {
+    return call("POST", "/complaints/" + id + "/retrace").then(function (r) {
+      set({ items: state.items.map(function (i) {
+        return i.c.id === id ? Object.assign({}, i, { trace: Object.assign({}, i.trace, { state: "running", message: null, can_rerun: false }) }) : i;
+      }) });
+      return r;
+    });
+  }
 
   window.PeechaAPI = {
     get: function () { return state; },
@@ -164,6 +180,7 @@
     use: use,
     call: call,
     file: file,
+    retrace: retrace,
     login: login,
     reset: function () { put(USER_KEY, ""); inflight = null; gen++; set({ status: "idle", items: [], meta: null, error: null }); }
   };

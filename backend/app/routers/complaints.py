@@ -5,13 +5,13 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
 
-from pipeline import hold_proposals
+from pipeline import hold_proposals, orchestrator
 
 from .. import jobs
 from ..auditlog import write_audit
 from ..auth import User, current_user
 from ..db import Page, get_conn, page, pipeline_conn, utcnow
-from ..masking import mask, require_access, scope, visible_complaint
+from ..masking import mask, mask_text, require_access, scope, visible_complaint
 
 router = APIRouter(prefix="/complaints", tags=["complaints"])
 
@@ -111,6 +111,69 @@ def complaint_trail(complaint_id: str, method: Literal["fifo", "lifo", "prorata"
            WHERE vm.complaint_id = %s AND vm.method = %s
            ORDER BY vm.hop, t.ts, vm.id""", (complaint_id, method)).fetchall()
     return mask(user, "trail", rows)
+
+
+def trace_status(conn, user: User, row: dict) -> dict:
+    """Where this complaint's trace stands: running, done, no_data, failed, waiting, not_started or not_configured."""
+    cid = row["id"]
+    rows = conn.execute("SELECT count(*) AS n FROM victim_mapping WHERE complaint_id = %s AND method = 'fifo'", (cid,)).fetchone()["n"]
+    last = jobs.RESULTS.get(cid)
+    busy = cid in jobs.RUNNING
+    if not busy:  # a run started by the periodic job or another instance holds the same lock
+        got = conn.execute("SELECT pg_try_advisory_lock(%s, hashtext(%s)) AS got", (orchestrator.LOCK_KEY, cid)).fetchone()["got"]
+        if got:
+            conn.execute("SELECT pg_advisory_unlock(%s, hashtext(%s))", (orchestrator.LOCK_KEY, cid))
+        else:
+            busy = True
+    enabled, message = jobs.enabled(), None
+    if busy:
+        state = "running"
+    elif not enabled:
+        state = "done" if rows else "not_configured"
+        message = None if rows else "Tracing is switched off on this server."
+    elif last and last["error"]:
+        state = "failed"
+        message = "The trace failed. Please re-run it." if user.is_consumer else last["error"]
+    elif rows:
+        state = "done"
+    elif row["last_traced_at"] or last:
+        state = "no_data"
+        message = (last["failures"][0] if last and last["failures"] else None) or "No matching payment or trail was found in the bank data."
+        if user.is_consumer:
+            message = "We could not find this payment in the bank data. Check the account and the reference number, then re-run."
+    else:
+        state = "waiting" if (jobs.now() - row["reported_at"]).total_seconds() < 120 else "not_started"
+        message = None if state == "waiting" else "The trace never started."
+    return {"state": state, "rows": rows, "message": mask_text(user, message), "last_traced_at": row["last_traced_at"],
+            "can_rerun": enabled and state != "running"}
+
+
+@router.get("/{complaint_id}/trace")
+def complaint_trace(complaint_id: str, user: User = Depends(current_user), conn=Depends(get_conn)):
+    require_access(user, "complaints")
+    row = visible_complaint(conn, user, complaint_id)
+    if row is None:
+        raise HTTPException(404, "complaint not found")
+    return trace_status(conn, user, row)
+
+
+@router.post("/{complaint_id}/retrace", status_code=202)
+def retrace_complaint(complaint_id: str, user: User = Depends(current_user), conn=Depends(get_conn)):
+    """Run the trace again for a complaint you can see: the victim, the bank involved, or the officer."""
+    require_access(user, "complaints")
+    row = visible_complaint(conn, user, complaint_id)
+    if row is None:
+        raise HTTPException(404, "complaint not found")
+    if not jobs.enabled():
+        raise HTTPException(503, "Tracing is switched off on this server (BANK_DATABASE_URL is not set)")
+    if trace_status(conn, user, row)["state"] == "running":
+        raise HTTPException(409, "A trace is already running for this complaint")
+    jobs.RESULTS.pop(complaint_id, None)
+    write_audit(conn, user.id, "TRACE", f"{complaint_id} trace re-run requested by {user.name}", complaint_id)
+    conn.commit()
+    if not jobs.start_trace(complaint_id):
+        raise HTTPException(409, "A trace is already running for this complaint")
+    return {"state": "running"}
 
 
 @router.get("/{complaint_id}/hold-proposals")
