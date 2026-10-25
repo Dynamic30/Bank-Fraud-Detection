@@ -29,11 +29,16 @@ const API = window.PeechaAPI || {
 };
 
 function useLive() {
- const s = R.useSyncExternalStore(API.subscribe, API.get);
+ const s = R.useSyncExternalStore(API.subscribe, API.get),
+  role = (useApp().user || {}).key || "consumer";
  R.useEffect(() => {
-  if (s.status === "idle") API.refresh()
- }, [s.status]);
- return s
+  API.use && API.use(role)
+ }, [role, s.status]);
+ return s.role === role ? s : {
+  ...s,
+  status: "idle",
+  items: []
+ }
 }
 const utcDate = ts => ts ? new Date(/Z|[+-]\d\d:?\d\d$/.test(ts) ? ts : ts + "Z") : null;
 const liveWhen = ts => {
@@ -622,7 +627,7 @@ export function FileComplaint() {
  });
  const [busy, setBusy] = R.useState(false);
  const live = useLive(),
-  useBackend = role === "consumer" && live.status === "live";
+  useBackend = (role === "consumer" || role === "officer") && live.status === "live";
  const set = k => ev => setF({
   ...f,
   [k]: ev.target.value
@@ -1792,6 +1797,7 @@ function ConsumerReports() {
     }, "Print / PDF")))));
 }
 export function Reports() {
- const e = useApp();
- return e.user.key === "consumer" ? h(ConsumerReports, null) : h(ActionReport, null)
+ const e = useApp(),
+  live = useLive();
+ return e.user.key === "consumer" || (e.user.key === "officer" && live.status === "live") ? h(ConsumerReports, null) : h(ActionReport, null)
 }
