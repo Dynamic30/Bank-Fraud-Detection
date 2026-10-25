@@ -10,6 +10,11 @@ CFG = load_rules()
 _ids = iter(range(1, 10**6))
 
 
+@pytest.fixture(autouse=True)
+def clean():
+    yield
+
+
 def acct(id="SBI:1", **kw):
     row = dict(account_id=id, kind="bank", bank_id="SBI", wallet_kind=None, dob=date(2000, 1, 1), occupation="salaried",
                declared_income=600000, opening_balance=0, opened_on=date(2024, 1, 1), device_id=None, upi_id=None,
