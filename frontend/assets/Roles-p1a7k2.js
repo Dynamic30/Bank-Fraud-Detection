@@ -623,6 +623,7 @@ export function FileComplaint() {
   scamType: SCAMS[0],
   amount: "",
   fraudTime: "",
+  fraudClock: "",
   destination: "bank",
   ref: "",
   description: ""
@@ -689,12 +690,26 @@ export function FileComplaint() {
     value: f.amount,
     onChange: set("amount")
    })),
-   fld("When did it happen", h("input", {
+   fld("When did it happen (optional)", h("div", {
+    style: {
+     display: "flex",
+     gap: 8
+    }
+   }, h("input", {
     className: "input",
-    type: "datetime-local",
+    type: "date",
+    max: new Date().toISOString().slice(0, 10),
     value: f.fraudTime,
-    onChange: set("fraudTime")
-   })),
+    onChange: set("fraudTime"),
+    "aria-label": "Date"
+   }), h("input", {
+    className: "input",
+    type: "time",
+    value: f.fraudClock,
+    onChange: set("fraudClock"),
+    "aria-label": "Time (optional)",
+    title: "Time (optional)"
+   }))),
    fld("Where did the money go", h("select", {
     className: "select",
     value: f.destination,
