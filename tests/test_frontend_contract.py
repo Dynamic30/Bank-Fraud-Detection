@@ -5,7 +5,7 @@ ADDRESS = "TAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
 def test_ask_without_key_gives_canned_answer(client):
     r = client.post("/api/ask", json={"question": "what next?", "context": {"case": "C-3001"}}, headers=OFFICER)
-    assert r.status_code == 200 and "ANTHROPIC_API_KEY" in r.json()["answer"]
+    assert r.status_code == 200 and "LLM_API_KEY" in r.json()["answer"]
 
 
 def test_ask_draft_returns_draft_unchanged(client):
