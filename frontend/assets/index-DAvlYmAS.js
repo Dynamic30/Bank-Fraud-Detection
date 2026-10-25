@@ -11434,10 +11434,9 @@ function Vp() {
       borderColor: "#14325E"
      },
      onClick: () => {
-      try {
-       new Audio("./assets/peecha-intro-hi.mp3").play().catch(() => {})
-      } catch {}
-      n()
+      window.PeechaTour ? window.PeechaTour.choose().then(l => {
+       l && n()
+      }) : n()
      },
      children: "▶ Take the 3-minute guided demo"
     }), S.jsx("p", {
@@ -12455,66 +12454,14 @@ const Oo = () => setTimeout(() => {
   dwell: 0
  }];
 
+const TourLz = H.lazy(() => $e(() => import("./Tour.js"), [], import.meta.url));
+
 function fh() {
- const e = xt(),
-  t = H.useRef(e);
- t.current = e;
- const [n, r] = H.useState(0), [l, o] = H.useState(!1), [i, s] = H.useState(-1);
- if (H.useEffect(() => {
-   e.tourOn || (r(0), s(-1), o(!1), Tn())
-  }, [e.tourOn]), H.useEffect(() => {
-   !e.tourOn || i === n || (Et[n].run(t.current, t), s(n))
-  }, [n, e.tourOn, i]), H.useEffect(() => {
-   if (!e.tourOn || l || !Et[n].dwell || i !== n) return;
-   const d = setTimeout(() => r(k => Math.min(Et.length - 1, k + 1)), Et[n].dwell);
-   return () => clearTimeout(d)
-  }, [n, l, e.tourOn, i]), !e.tourOn || !e.session) return null;
- const a = Et[n],
-  h = n === Et.length - 1;
- return S.jsxs("div", {
-  className: "tour",
-  role: "dialog",
-  "aria-live": "polite",
-  "aria-label": "Guided demo",
-  children: [S.jsxs("div", {
-   className: "tour-top",
-   children: [S.jsxs("span", {
-    className: "tour-step mono",
-    children: [n + 1, " / ", Et.length]
-   }), S.jsx("b", {
-    children: a.title
-   })]
-  }), S.jsx("p", {
-   children: a.text(e)
-  }), S.jsx("div", {
-   className: "tour-progress",
-   children: S.jsx("i", {
-    style: {
-     width: `${(n+1)/Et.length*100}%`
-    }
-   })
-  }), S.jsxs("div", {
-   className: "btn-row",
-   style: {
-    gap: 8
-   },
-   children: [!h && S.jsx("button", {
-    className: "btn sm",
-    onClick: () => o(!l),
-    children: l ? "▶ Resume" : "❚❚ Pause"
-   }), !h && S.jsx("button", {
-    className: "btn ghost sm",
-    onClick: () => r(n + 1),
-    children: "Next →"
-   }), S.jsx("button", {
-    className: `btn ${h?"":"ghost"} sm`,
-    onClick: () => {
-     Tn(), e.endCall(), e.endTour()
-    },
-    children: h ? "Finish" : "Exit tour"
-   })]
-  })]
- })
+ const e = xt();
+ return e.tourOn ? S.jsx(H.Suspense, {
+  fallback: null,
+  children: S.jsx(TourLz, {})
+ }) : null
 }
 
 function ph() {
