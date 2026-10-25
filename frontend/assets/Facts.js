@@ -1,9 +1,9 @@
 import { u as useApp, e as R, b as inr } from "./index-DAvlYmAS.js";
-/* The slow rotating facts bar at the top of every page. The numbers come from one GET /api/stats per page load
-   (whole-platform totals, staff only); the bar then just turns through them. */
+/* The facts marquee at the top of every page. The numbers come from one GET /api/stats per page load
+   (whole-platform totals, staff only); the bar then just scrolls through them, slowly, and stops while the pointer is on it. */
 const h = R.createElement;
 const API = window.PeechaAPI;
-const EVERY = 6000;
+const SECONDS_PER_FACT = 14; // slow: about 40px a second
 
 let cached = null, pending = null; // kept once it has loaded; a failure is forgotten so the next sign-in tries again
 const load = () => cached ? Promise.resolve(cached) : (pending = pending || API.call("GET", "/stats").then(s => (cached = s), err => { pending = null; throw err }));
@@ -24,8 +24,6 @@ export default function Facts() {
  const e = useApp();
  const api = R.useSyncExternalStore(API.subscribe, API.get);
  const [list, setList] = R.useState(cached ? facts(cached) : []);
- const [i, setI] = R.useState(0);
- const [still, setStill] = R.useState(false);
  const staff = api.status === "live" && api.role !== "consumer";
  // ask only once the sign-in has finished (a slow server answers /login after the page has drawn), and again if the role changes
  R.useEffect(() => {
@@ -34,16 +32,12 @@ export default function Facts() {
   load().then(s => on && setList(facts(s)), () => on && setList([]));
   return () => { on = false }
  }, [e.session, staff, api.role]);
- R.useEffect(() => {
-  if (list.length < 2 || still) return;
-  const t = setInterval(() => setI(k => k + 1), EVERY);
-  return () => clearInterval(t)
- }, [list.length, still]);
  if (!e.session || !staff || list.length === 0) return null;
- const f = list[i % list.length];
- return h("div", { className: "facts", role: "status", "aria-label": "Platform facts", onMouseEnter: () => setStill(true), onMouseLeave: () => setStill(false) },
+ // the list twice, so the loop has no gap
+ return h("div", { className: "facts", role: "status", "aria-label": "Platform facts" },
   h("span", { className: "facts-tag" }, "Live facts"),
-  h("span", { className: "facts-item", key: f.k + i },
-   h("b", { className: "facts-big mono" }, f.big), h("span", null, f.text)),
-  h("span", { className: "facts-n mono" }, `${(i % list.length) + 1}/${list.length}`))
+  h("div", { className: "facts-view" },
+   h("div", { className: "facts-track", style: { animationDuration: `${Math.max(40, list.length * SECONDS_PER_FACT)}s` } },
+    [0, 1].map(k => list.map(f => h("span", { className: "facts-item", key: k + f.k, "aria-hidden": k ? "true" : undefined },
+     h("b", { className: "facts-big mono" }, f.big), h("span", null, f.text)))))))
 }
