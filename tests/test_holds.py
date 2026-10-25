@@ -40,7 +40,6 @@ def test_officer_request_then_bank_execute_then_officer_confirm(client):
     assert (hold["status"], hold["origin"], hold["basis"], hold["expires_at"]) == ("requested", "officer", "officer_decision", None)
     hid = hold["id"]
     assert client.post(f"/api/holds/{hid}/execute", headers=HDFC).status_code == 403
-    assert client.post(f"/api/holds/{hid}/execute", headers=OFFICER).status_code == 403
     assert client.post(f"/api/holds/{hid}/confirm", headers=OFFICER).status_code == 409
 
     executed = client.post(f"/api/holds/{hid}/execute", headers=SBI).json()
@@ -52,6 +51,25 @@ def test_officer_request_then_bank_execute_then_officer_confirm(client):
     assert confirmed["decided_by"] == "u-officer-1"
 
 
+def test_officer_can_place_a_requested_hold_and_release_it(client, sql):
+    hid = place(client, OFFICER, complaint_id="C-3001").json()["id"]
+    placed = client.post(f"/api/holds/{hid}/execute", headers=OFFICER).json()
+    assert placed["status"] == "active" and placed["executed_by"] == "u-officer-1"
+    left = datetime.fromisoformat(placed["expires_at"]) - datetime.fromisoformat(placed["executed_at"])
+    assert abs(left - timedelta(hours=24)) < timedelta(minutes=1)
+    assert client.post(f"/api/holds/{hid}/confirm", headers=OFFICER).json()["status"] == "confirmed"
+    assert client.post(f"/api/holds/{hid}/release", headers=OFFICER).json()["status"] == "released"
+    texts = [r["text"] for r in sql("SELECT text FROM audit_log WHERE kind = 'HOLD' ORDER BY seq").fetchall()]
+    assert any("EXECUTED" in t and "Insp. Meera Baruah" in t for t in texts)
+
+
+def test_a_consumer_still_cannot_place_or_release(client):
+    hid = place(client, OFFICER).json()["id"]
+    consumer = {"X-User-Id": "u-consumer-1"}
+    assert client.post(f"/api/holds/{hid}/execute", headers=consumer).status_code == 403
+    assert client.post(f"/api/holds/{hid}/release", headers=consumer).status_code == 403
+
+
 def test_reject_and_release_free_the_account(client):
     hid = place(client, SBI).json()["id"]
     assert client.post(f"/api/holds/{hid}/reject", headers=SBI).status_code == 403
@@ -59,7 +77,7 @@ def test_reject_and_release_free_the_account(client):
     assert client.post(f"/api/holds/{hid}/release", headers=SBI).status_code == 409
 
     hid = place(client, OFFICER).json()["id"]
-    assert client.post(f"/api/holds/{hid}/release", headers=OFFICER).status_code == 403
+    assert client.post(f"/api/holds/{hid}/release", headers=HDFC).status_code == 403
     assert client.post(f"/api/holds/{hid}/release", headers=SBI_ADMIN).json()["status"] == "released"
     assert place(client, SBI).status_code == 201
 
