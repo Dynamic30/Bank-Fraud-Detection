@@ -417,12 +417,103 @@ function Radar() {
 }
 
 /* --------------------------------------------------------- Prevention calls */
+/* The warning-call pop-up behind each "Log call" button: choose Hindi or English, the AI voice (ElevenLabs recordings in
+   assets/call/, words in assets/call.json) reads the warning line by line, then the holder's reply is logged. */
+let callScript = null;
+const loadCall = () => callScript ? Promise.resolve(callScript) : fetch("./assets/call.json").then(r => {
+ if (!r.ok) throw new Error("call.json " + r.status);
+ return r.json()
+}).then(d => (callScript = d));
+const callClip = (lang, n) => `./assets/call/${lang}-${n < 9 ? "0" : ""}${n + 1}.mp3`;
+const CALL_LANG = { hi: "Hindi", en: "English" };
+
+function CallPopup({ acct, onClose, onLog }) {
+ const [script, setScript] = R.useState(callScript);
+ const [lang, setLang] = R.useState(null); // null while the officer is still choosing
+ const [stage, setStage] = R.useState("choose"); // choose, ringing, speaking, respond, done
+ const [line, setLine] = R.useState(-1);
+ const [voice, setVoice] = R.useState(null); // mp3 once a recording is playing, none if the browser cannot play it
+ const [err, setErr] = R.useState("");
+ const stop = R.useRef(() => {});
+ const box = R.useRef(null);
+ const close = () => { stop.current(); onClose() };
+ // keep the line being spoken in view
+ R.useEffect(() => {
+  const cur = box.current && box.current.children[line];
+  if (!cur) return;
+  const over = cur.getBoundingClientRect().bottom - box.current.getBoundingClientRect().bottom;
+  if (over > 0) box.current.scrollTop += over + 6
+ }, [line, stage]);
+ R.useEffect(() => {
+  loadCall().then(setScript, () => setErr("Could not load the call script."));
+  const esc = ev => { if (ev.key === "Escape") { stop.current(); onClose() } };
+  document.addEventListener("keydown", esc);
+  return () => { document.removeEventListener("keydown", esc); stop.current() }
+ }, []);
+ // starts inside the click on a language button, so the browser lets the sound play
+ const begin = l => {
+  setLang(l); setStage("ringing"); setLine(-1); setErr("");
+  const a = new Audio();
+  let dead = false, timer = null;
+  stop.current = () => { dead = true; clearTimeout(timer); a.onended = a.onerror = null; a.pause() };
+  const speak = i => {
+   if (dead) return;
+   if (i >= script.lines.length) return setStage("respond");
+   setLine(i);
+   let moved = false;
+   // a clip that ends, or cannot play, moves on to the next line (after a pause to read when there is no sound)
+   const move = ms => { if (!moved && !dead) { moved = true; timer = setTimeout(() => speak(i + 1), ms) } };
+   a.onended = () => move(500);
+   a.onerror = () => { setVoice("none"); move(3200) };
+   a.onplaying = () => setVoice("mp3");
+   a.src = callClip(l, i);
+   const p = a.play();
+   if (p && p.catch) p.catch(() => { setVoice("none"); move(3200) })
+  };
+  timer = setTimeout(() => { if (!dead) { setStage("speaking"); speak(0) } }, 2200)
+ };
+ const reply = r => {
+  setStage("done"); setErr("");
+  Promise.resolve(onLog(r.outcome, r[lang])).then(ok => {
+   if (ok) setTimeout(onClose, 1400);
+   else { setStage("respond"); setErr("The call was not logged. Try again.") }
+  })
+ };
+ const L = script ? script.lines : [];
+ return h("div", { className: "backdrop", style: { zIndex: 92 }, onClick: close },
+  h("div", { className: "phone", onClick: ev => ev.stopPropagation(), role: "dialog", "aria-label": "Prevention call" },
+   h("div", { className: "phone-top" },
+    h("div", { className: "phone-kicker" }, "Peecha · outbound warning call"),
+    h("div", { className: "phone-name" }, acct.holder_name || acct.account_id),
+    h("div", { className: "phone-num mono" }, `${acct.phone_masked || "—"} · ${acct.bank_id ? acct.bank_id + " Bank" : acct.kind || ""}`),
+    h("div", { className: `phone-state ${stage === "speaking" || stage === "respond" ? "speaking" : "ringing"}` },
+     stage === "choose" ? "Ready to call" : stage === "ringing" ? "Ringing…" : stage === "speaking" ? `Connected · AI voice speaking ${CALL_LANG[lang]}` :
+      stage === "respond" ? "Listening for the reply" : "Call ended · logged to the case"),
+    stage === "ringing" && h("div", { className: "ring" }, h("i"), h("i"), h("i"))),
+   stage === "choose" ? h("div", { className: "phone-resp", style: { padding: "16px 2px 8px" } },
+    h("div", { className: "cell-sub", style: { marginBottom: 6 } }, "Send the warning call in"),
+    h("button", { className: "btn ghost sm", disabled: !script, "data-lang": "hi", onClick: () => begin("hi") }, "हिन्दी · Hindi"),
+    h("button", { className: "btn ghost sm", disabled: !script, "data-lang": "en", onClick: () => begin("en") }, "English")) :
+   h("div", { className: "phone-transcript", "aria-live": "polite", ref: box },
+    L.map((t, i) => h("div", { key: i, className: `tl ${i <= line ? "on" : ""} ${i === line && stage === "speaking" ? "now" : ""}` },
+     h("div", null, t[lang]), lang === "hi" && h("div", { className: "tl-r" }, t.roman))),
+    voice && h("div", { className: "voice-src" }, voice === "mp3" ? "● Recorded voice (ElevenLabs)" : "● No sound in this browser, transcript only")),
+   stage === "respond" && h("div", { className: "phone-resp" },
+    h("div", { className: "cell-sub", style: { marginBottom: 6 } }, "Holder's reply (demo: pick one)"),
+    script.replies.map(r => h("button", { key: r.outcome, className: "btn ghost sm", onClick: () => reply(r) }, r[lang]))),
+   err && h("div", { className: "note change", style: { fontSize: 12, margin: "6px 0" } }, err),
+   h("div", { className: "phone-foot" },
+    h("span", { className: "muted", style: { fontSize: 11.5 } }, "Production: ElevenLabs voice agent + Twilio from the bank's official number. Demo: recorded ElevenLabs voice."),
+    h("button", { className: "phone-end", onClick: close, "aria-label": "End call" }, "✕"))))
+}
+
 function Calls() {
  const e = useApp(),
   calls = useGet("/calls?limit=100"),
   cand = useGet("/accounts?min_score=40&limit=50");
  const run = useDo(e, () => { calls.reload() });
  const [f, setF] = R.useState({ account_id: "", outcome: "admitted", reply_label: "" });
+ const [popup, setPopup] = R.useState(null);
  const log = body => run("Call logged", () => API.call("POST", "/calls", body));
  return h(R.Fragment, null,
   h(PageHead, { title: "Prevention calls", desc: "Warning calls to accounts scored 40 or more, and what they said." }),
@@ -430,9 +521,10 @@ function Calls() {
    !cand.data || cand.data.length === 0 ? Empty("No candidates.", "No account scores 40 or more yet.") :
    Table([["Account"], ["Holder"], ["Score", "right"], [""]], cand.data.map(x => ({
     cells: [h("span", { className: "mono" }, x.account_id), x.holder_name || "—", h(Pill, { tone: scoreTone(Number(x.score)) }, Number(x.score).toFixed(0)),
-     h("button", { className: "btn sm", onClick: () => setF({ ...f, account_id: x.account_id }) }, "Log call")]
+     h("button", { className: "btn sm", title: "Open the warning call", onClick: () => setPopup(x) }, "Log call")]
    })))),
-  h("div", { style: { marginTop: 18 } }, h(Card, { title: "Log a call" },
+  popup && h(CallPopup, { acct: popup, onClose: () => setPopup(null), onLog: (outcome, reply_label) => log({ account_id: popup.account_id, outcome, reply_label }) }),
+  h("div", { style: { marginTop: 18 } }, h(Card, { title: "Record a call made elsewhere", sub: "Only for calls that were not made from here" },
    h("div", { className: "rl-form two" },
     Field("Account", h("input", { className: "input mono", value: f.account_id, onChange: ev => setF({ ...f, account_id: ev.target.value }), placeholder: "SBI:1234567890" })),
     Field("Outcome", h("select", { className: "input", value: f.outcome, onChange: ev => setF({ ...f, outcome: ev.target.value }) },
@@ -441,7 +533,7 @@ function Calls() {
    h("div", { className: "btn-row", style: { marginTop: 12 } }, h("button", {
     className: "btn", disabled: !f.account_id.trim(),
     onClick: () => log({ account_id: f.account_id.trim(), outcome: f.outcome, reply_label: f.reply_label || null })
-   }, "Log call")))),
+   }, "Save record")))),
   h("div", { style: { marginTop: 18 } }, h(Card, { title: "Call history" },
    h(Status, { st: calls }),
    calls.data && calls.data.length === 0 ? Empty("No calls yet.", "") : calls.data ? Table([["When", "", "nowrap"], ["Account"], ["Outcome"], ["Reply"], ["By"]],

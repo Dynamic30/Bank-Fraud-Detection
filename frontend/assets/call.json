@@ -1,0 +1,55 @@
+{
+  "voices": {
+    "en": "EXAVITQu4vr4xnSDxMaL",
+    "hi": "EXAVITQu4vr4xnSDxMaL"
+  },
+  "lines": [
+    {
+      "hi": "नमस्ते, यह आपके बैंक की ओर से एक ज़रूरी सूचना है।",
+      "roman": "Namaste, yeh aapke bank ki or se ek zaroori soochna hai.",
+      "en": "Hello, this is an important notice from your bank."
+    },
+    {
+      "hi": "आपके खाते में अभी पैसा आया और तुरंत आगे भेज दिया गया।",
+      "roman": "Aapke khaate mein abhi paisa aaya aur turant aage bhej diya gaya.",
+      "en": "Money has just come into your account and was sent on immediately."
+    },
+    {
+      "hi": "अगर किसी ने कमीशन के बदले आपका खाता माँगा है, तो यह साइबर फ्रॉड हो सकता है।",
+      "roman": "Agar kisi ne commission ke badle aapka khaata maanga hai, to yeh cyber fraud ho sakta hai.",
+      "en": "If someone asked for your account in exchange for a commission, this may be cyber fraud."
+    },
+    {
+      "hi": "आपका खाता फ्रीज़ हो सकता है और आप आरोपी बन सकते हैं।",
+      "roman": "Aapka khaata freeze ho sakta hai aur aap aaropi ban sakte hain.",
+      "en": "Your account can be frozen and you can become an accused."
+    },
+    {
+      "hi": "कृपया अपनी बैंक शाखा या 1930 पर संपर्क करें। क्या किसी ने आपसे आपका खाता माँगा था?",
+      "roman": "Kripya apni bank shaakha ya 1930 par sampark karein. Kya kisi ne aapse aapka khaata maanga tha?",
+      "en": "Please contact your bank branch or 1930. Did someone ask you for your account?"
+    }
+  ],
+  "replies": [
+    {
+      "outcome": "admitted",
+      "hi": "Haan, Telegram pe kisi ne commission ke liye account maanga tha",
+      "en": "Yes, someone on Telegram asked for my account for a commission"
+    },
+    {
+      "outcome": "denied",
+      "hi": "Nahi, yeh mera apna paisa hai",
+      "en": "No, this is my own money"
+    },
+    {
+      "outcome": "unsure",
+      "hi": "Mujhe nahi pata, dost ne bheja tha",
+      "en": "I do not know, a friend sent it"
+    },
+    {
+      "outcome": "noanswer",
+      "hi": "Call not answered",
+      "en": "Call not answered"
+    }
+  ]
+}
