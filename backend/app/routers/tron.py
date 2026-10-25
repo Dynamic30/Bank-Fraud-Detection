@@ -1,10 +1,9 @@
-import os
 import re
 from datetime import timezone
 
-import psycopg
-from fastapi import APIRouter, HTTPException
-from psycopg.rows import dict_row
+from fastapi import APIRouter, Depends, HTTPException
+
+from ..db import get_conn
 
 router = APIRouter(tags=["tron"])
 
@@ -12,16 +11,14 @@ ADDRESS = re.compile(r"^T[1-9A-HJ-NP-Za-km-z]{33}$")
 
 
 @router.get("/tron")
-def tron(address: str):
+def tron(address: str, conn=Depends(get_conn)):
     if not ADDRESS.match(address):
         raise HTTPException(422, "invalid TRON address")
-    try:
-        with psycopg.connect(os.environ["BANK_DATABASE_URL"], connect_timeout=2, row_factory=dict_row) as conn:
-            rows = conn.execute(
-                """SELECT tx_hash, block_time, from_address, to_address, amount FROM crypto_transfers
-                   WHERE from_address = %(a)s OR to_address = %(a)s ORDER BY block_time DESC LIMIT 20""",
-                {"a": address}).fetchall()
-    except (KeyError, psycopg.Error):
-        return {"rows": []}
-    return {"rows": [{"hash": r["tx_hash"], "time": int(r["block_time"].replace(tzinfo=timezone.utc).timestamp() * 1000),
-                      "from": r["from_address"], "to": r["to_address"], "amount": float(r["amount"])} for r in rows]}
+    wallet = f"TRON:{address}"
+    rows = conn.execute(
+        """SELECT source_ref, ts, from_id, to_id, amount FROM transfers
+           WHERE rail = 'CHAIN' AND (from_id = %(w)s OR to_id = %(w)s) ORDER BY ts DESC LIMIT 20""",
+        {"w": wallet}).fetchall()
+    return {"rows": [{"hash": r["source_ref"], "time": int(r["ts"].replace(tzinfo=timezone.utc).timestamp() * 1000),
+                      "from": r["from_id"].removeprefix("TRON:"), "to": r["to_id"].removeprefix("TRON:"),
+                      "amount": float(r["amount"])} for r in rows]}
