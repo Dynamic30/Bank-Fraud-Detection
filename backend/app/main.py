@@ -1,0 +1,35 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from . import auth, db
+from .routers import accounts, actions, ask, audit, banks, calls, complaints, holds, mules, settings, tron
+
+FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db.init_pool()
+    yield
+    db.close_pool()
+
+
+app = FastAPI(title="Peecha API", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.get("/health")
+def health():
+    return {"ok": True, "version": "0.1", "db": "up" if db.db_up() else "down"}
+
+
+app.include_router(auth.router, prefix="/api")
+for module in (complaints, accounts, mules, holds, actions, calls, audit, settings, banks, ask, tron):
+    app.include_router(module.router, prefix="/api", dependencies=[Depends(auth.current_user)])
+
+if FRONTEND.is_dir():
+    app.mount("/", StaticFiles(directory=FRONTEND, html=True))

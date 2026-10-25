@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     dob                DATE,
     occupation         TEXT,
     declared_income    NUMERIC(12,2),
+    opening_balance    NUMERIC(18,6) NOT NULL DEFAULT 0,
     city               TEXT,
     opened_on          DATE,
     device_id          TEXT,
@@ -335,6 +336,7 @@ INSERT INTO settings(key, value) VALUES
     ('p2p_rate',         '90'),
     ('golden_minutes',   '60'),
     ('min_trace_amount', '500'),
+    ('hold_min_amount_inr', '1000'),
     ('max_hops',         '12'),
     ('demo_clock',       'null')
 ON CONFLICT (key) DO NOTHING;
