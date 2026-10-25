@@ -10145,7 +10145,7 @@ function navOf(r) {
  ] : [
   ["inbox", "▤", "Cases", ["inbox"]],
   ["trail", "⟿", "Money action", ["trail"]],
-  ["accounts", "◉", "Mule radar", ["accounts", "prevent", "crypto"]],
+  ["accounts", "◉", "Mule radar", ["accounts", "prevent"]],
   ["holds", "◈", "Holds", ["holds", "action"]],
   ["reports", "▦", "Reports", ["reports"]], r === "officer" ? ["model", "▧", "System", ["model", "audit", "settings"]] : ["settings", "⚙", "Settings", ["settings"]]
  ]
@@ -10168,8 +10168,7 @@ function TabsBar() {
  const G = {
   accounts: [
    ["accounts", "Mule accounts"],
-   ["prevent", "Prevention calls"],
-   ["crypto", "Crypto wallets"]
+   ["prevent", "Prevention calls"]
   ],
   holds: [
    ["holds", "Holds"],
@@ -12011,7 +12010,6 @@ const nu = [
   ["accounts", "◉", "Mule radar"],
   ["action", "✎", "Action pack"],
   ["prevent", "☎", "Prevention calls"],
-  ["crypto", "₮", "Crypto wallets"],
   ["model", "▧", "Model & metrics"],
   ["audit", "⛓", "Audit trail"],
   ["settings", "⚙", "Settings"]
@@ -12031,7 +12029,6 @@ uh = {
   inbox: liveGate(CasesPg, "inbox"),
   trail: liveGate(TrailPg, "trail"),
   accounts: liveGate(Xp, "accounts"),
-  crypto: liveGate(bp, "crypto"),
   action: liveGate(HoldsPg, "action"),
   prevent: liveGate(Zp, "prevent"),
   model: liveGate(Jp, "model"),
