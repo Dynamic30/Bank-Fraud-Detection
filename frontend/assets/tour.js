@@ -77,7 +77,7 @@
       var css = document.createElement("style");
       css.textContent =
         ".pt-back{position:fixed;inset:0;background:rgba(10,20,35,.55);display:flex;align-items:center;justify-content:center;z-index:2000;padding:16px}" +
-        ".pt-box{background:var(--card-bg,#fff);color:var(--text,#14202e);border:1px solid var(--border-color,#d8dee6);border-radius:14px;max-width:420px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center}" +
+        ".pt-box{background:var(--card-bg,#fff);color:var(--text-primary,#14202e);border:1px solid var(--border-color,#d8dee6);border-radius:14px;max-width:420px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center}" +
         ".pt-box h2{margin:0 0 4px;font-size:20px}.pt-box p{margin:0 0 18px;font-size:14px;opacity:.75}" +
         ".pt-row{display:flex;gap:12px}.pt-row button{flex:1;padding:16px 10px;font-size:18px;font-weight:700;border-radius:10px;cursor:pointer;border:1px solid var(--primary,#14325e);background:var(--primary,#14325e);color:var(--primary-fg,#fff)}" +
         ".pt-row button:hover{filter:brightness(1.12)}.pt-row small{display:block;font-size:11px;font-weight:400;opacity:.8;margin-top:2px}" +

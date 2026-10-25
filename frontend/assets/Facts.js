@@ -3,7 +3,7 @@ import { u as useApp, e as R, b as inr } from "./index-DAvlYmAS.js";
    (whole-platform totals, staff only); the bar then just scrolls through them, slowly, and stops while the pointer is on it. */
 const h = R.createElement;
 const API = window.PeechaAPI;
-const SECONDS_PER_FACT = 14; // slow: about 40px a second
+const SECONDS_PER_FACT = 6; // about 60px a second
 
 let cached = null, pending = null; // kept once it has loaded; a failure is forgotten so the next sign-in tries again
 const load = () => cached ? Promise.resolve(cached) : (pending = pending || API.call("GET", "/stats").then(s => (cached = s), err => { pending = null; throw err }));
@@ -35,9 +35,9 @@ export default function Facts() {
  if (!e.session || !staff || list.length === 0) return null;
  // the list twice, so the loop has no gap
  return h("div", { className: "facts", role: "status", "aria-label": "Platform facts" },
-  h("span", { className: "facts-tag" }, "Live facts"),
+  h("span", { className: "facts-tag" }, h("i", { className: "facts-dot", "aria-hidden": "true" }), "Live facts"),
   h("div", { className: "facts-view" },
-   h("div", { className: "facts-track", style: { animationDuration: `${Math.max(40, list.length * SECONDS_PER_FACT)}s` } },
+   h("div", { className: "facts-track", style: { animationDuration: `${Math.max(24, list.length * SECONDS_PER_FACT)}s` } },
     [0, 1].map(k => list.map(f => h("span", { className: "facts-item", key: k + f.k, "aria-hidden": k ? "true" : undefined },
      h("b", { className: "facts-big mono" }, f.big), h("span", null, f.text)))))))
 }
