@@ -106,8 +106,7 @@ def ask_status(probe: bool = False, user: User = Depends(current_user)):
     out = {"ready": bool(cfg["key"]), "key_found_as": cfg["key_name"], "model": cfg["model"], "model_found_as": cfg["model_name"],
            "provider_found_as": cfg["url_name"] or "the library default"}
     if user.is_officer:  # names only, so a misspelt variable can be spotted
-        out["related_names_on_server"] = sorted(n for n in os.environ if re.search(r"LLM|ADAPTION|PROVIDER|API|MODEL|KEY", n, re.I)
-                                                and not re.search(r"DATABASE|POSTGRES|PASSWORD|GITHUB|TOKEN", n, re.I))
+        out["related_names_on_server"] = sorted(n for n in os.environ if re.search(r"LLM|ADAPTION|ANTHROPIC|CLAUDE|MODEL|PROVIDER", n, re.I))
     if probe and cfg["key"]:
         try:
             out["probe"] = {"ok": bool(call_model(cfg, "Reply with the single word OK.", "Reply with the single word OK.", 32))}
