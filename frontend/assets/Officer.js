@@ -118,6 +118,7 @@ function Trail() {
 /* ------------------------------------------------------------ Mule radar */
 function Radar() {
  const e = useApp(),
+  officer = e.user.key === "officer",
   accts = useGet("/accounts?limit=200"),
   mules = useGet("/mules?limit=200");
  const [sel, setSel] = R.useState(null);
@@ -141,7 +142,7 @@ function Radar() {
     h("pre", { className: "mono", style: { whiteSpace: "pre-wrap", fontSize: 12, marginTop: 12 } }, a.reasons ? JSON.stringify(a.reasons, null, 2) : "No score reasons yet."),
     a.kind === "bank" && h("div", { className: "btn-row" }, h("button", {
      className: "btn hold sm", onClick: () => run("Hold requested", () => API.call("POST", "/holds", { account_id: sel, reason: `Mule score ${a.score == null ? "n/a" : Number(a.score).toFixed(0)}`, score_at_time: a.score }))
-    }, "Request hold"))))),
+    }, officer ? "Request hold" : "Place 24h hold"))))),
   h("div", { style: { marginTop: 18 } }, h(Card, { title: "Flagged mules", sub: "mule_accounts" },
    !mules.data || mules.data.length === 0 ? Empty("Nothing flagged yet.", "") :
    Table([["Account"], ["Bank"], ["Status"], ["Source"], ["First flagged", "", "nowrap"]], mules.data.map(m => ({
@@ -184,13 +185,14 @@ function Calls() {
 /* ------------------------------------------------------------------ Holds */
 function Holds() {
  const e = useApp(),
+  officer = e.user.key === "officer",
   holds = useGet("/holds?limit=200");
  const run = useDo(e, () => holds.reload());
  const [f, setF] = R.useState({ account_id: "", reason: "", amount: "", complaint_id: "" });
- const decide = (id, verb) => run(`Hold ${verb}ed`, () => API.call("POST", `/holds/${id}/${verb}`, {}));
+ const decide = (id, verb) => run(`Hold ${verb === "execute" ? "placed" : verb + "ed"}`, () => API.call("POST", `/holds/${id}/${verb}`, {}));
  return h(R.Fragment, null,
-  h(PageHead, { title: "Holds", desc: "24-hour temporary holds. The bank places them; you confirm or reject, or they expire." }),
-  h(Card, { title: "Request a hold", sub: "Sent to the bank to execute" },
+  h(PageHead, { title: "Holds", desc: officer ? "24-hour temporary holds. The bank places them; you confirm or reject, or they expire." : "24-hour temporary holds on your bank's accounts. The cyber cell confirms or rejects them, or they expire." }),
+  h(Card, { title: officer ? "Request a hold" : "Place a hold", sub: officer ? "Sent to the bank to execute" : "Active immediately for 24 hours" },
    h("div", { className: "rl-form two" },
     Field("Account", h("input", { className: "input mono", value: f.account_id, onChange: ev => setF({ ...f, account_id: ev.target.value }), placeholder: "SBI:1234567890" })),
     Field("Complaint (optional)", h("input", { className: "input mono", value: f.complaint_id, onChange: ev => setF({ ...f, complaint_id: ev.target.value }), placeholder: "C-3021" })),
@@ -198,22 +200,25 @@ function Holds() {
     Field("Reason", h("input", { className: "input", value: f.reason, onChange: ev => setF({ ...f, reason: ev.target.value }) }))),
    h("div", { className: "btn-row", style: { marginTop: 12 } }, h("button", {
     className: "btn", disabled: !f.account_id.trim() || f.reason.trim().length < 3,
-    onClick: () => run("Hold requested", () => API.call("POST", "/holds", {
+    onClick: () => run(officer ? "Hold requested" : "Hold placed", () => API.call("POST", "/holds", {
      account_id: f.account_id.trim(), reason: f.reason.trim(), complaint_id: f.complaint_id.trim() || null, amount: f.amount ? Number(f.amount) : null
     })).then(r => r && setF({ account_id: "", reason: "", amount: "", complaint_id: "" }))
-   }, "Request hold"))),
+   }, officer ? "Request hold" : "Place hold"))),
   h("div", { style: { marginTop: 18 } }, h(Card, { title: "All holds" },
    h(Status, { st: holds }),
    holds.data && holds.data.length === 0 ? Empty("No holds yet.", "") : holds.data ? Table([["#", "right"], ["Account"], ["Complaint"], ["Status"], ["Amount", "right", "nowrap"], ["Expires", "", "nowrap"], ["Reason"], [""]],
     holds.data.map(x => ({ cells: [x.id, h("span", { className: "mono" }, x.account_id), x.complaint_id || "—", pill(x.status), money(x.amount), when(x.expires_at), x.reason,
      h("div", { className: "btn-row" },
-      x.status === "active" && h("button", { className: "btn approve sm", onClick: () => decide(x.id, "confirm") }, "Confirm"),
-      (x.status === "requested" || x.status === "active") && h("button", { className: "btn danger sm", onClick: () => decide(x.id, "reject") }, "Reject"))] }))) : null)))
+      officer && x.status === "active" && h("button", { className: "btn approve sm", onClick: () => decide(x.id, "confirm") }, "Confirm"),
+      officer && (x.status === "requested" || x.status === "active") && h("button", { className: "btn danger sm", onClick: () => decide(x.id, "reject") }, "Reject"),
+      !officer && x.status === "requested" && h("button", { className: "btn hold sm", onClick: () => decide(x.id, "execute") }, "Place hold"),
+      !officer && ["requested", "active", "confirmed"].includes(x.status) && h("button", { className: "btn ghost sm", onClick: () => decide(x.id, "release") }, "Release"))] }))) : null)))
 }
 
 /* ---------------------------------------------------------------- Actions */
 function Actions() {
  const e = useApp(),
+  officer = e.user.key === "officer",
   acts = useGet("/actions?limit=200"),
   items = API.get().items;
  const run = useDo(e, () => acts.reload());
@@ -236,8 +241,8 @@ function Actions() {
    acts.data && acts.data.length === 0 ? Empty("No requests yet.", "") : acts.data ? Table([["#", "right"], ["Complaint"], ["Kind"], ["Target"], ["Status"], ["Created", "", "nowrap"], [""]],
     acts.data.map(x => ({ cells: [x.id, x.complaint_id, x.kind, x.target, pill(x.status), when(x.created_at),
      h("div", { className: "btn-row" },
-      x.status === "draft" && h("button", { className: "btn approve sm", onClick: () => run("Action approved", () => API.call("POST", `/actions/${x.id}/approve`, {})) }, "Approve"),
-      x.status === "approved" && h("button", { className: "btn sm", onClick: () => run("Action sent", () => API.call("POST", `/actions/${x.id}/send`)) }, "Send"))] }))) : null)))
+      officer && x.status === "draft" && h("button", { className: "btn approve sm", onClick: () => run("Action approved", () => API.call("POST", `/actions/${x.id}/approve`, {})) }, "Approve"),
+      officer && x.status === "approved" && h("button", { className: "btn sm", onClick: () => run("Action sent", () => API.call("POST", `/actions/${x.id}/send`)) }, "Send"))] }))) : null)))
 }
 
 /* ------------------------------------------------------------------ Audit */
@@ -259,16 +264,17 @@ function Audit() {
 /* --------------------------------------------------------------- Settings */
 function SettingsCard() {
  const e = useApp(),
+  officer = e.user.key === "officer",
   st = useGet("/settings");
  const [draft, setDraft] = R.useState({});
  const run = useDo(e, () => { st.reload(); setDraft({}) });
  const show = v => v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v);
  const parse = (key, s) => key === "demo_clock" ? (s.trim() === "" ? null : s.trim()) : Number(s);
- return h("div", { style: { marginTop: 18 } }, h(Card, { title: "Server settings", sub: "Stored in the backend. Changes are audited." },
+ return h("div", { style: { marginTop: 18 } }, h(Card, { title: "Server settings", sub: officer ? "Stored in the backend. Changes are audited." : "Stored in the backend. Only an officer can change them." },
   h(Status, { st }),
   st.data && Table([["Setting"], ["Value"], ["Updated by"], [""]], st.data.map(s => ({
    cells: [h("span", { className: "mono" }, s.key),
-    h("input", { className: "input mono", value: draft[s.key] !== undefined ? draft[s.key] : show(s.value), onChange: ev => setDraft({ ...draft, [s.key]: ev.target.value }) }),
+    h("input", { className: "input mono", disabled: !officer, value: draft[s.key] !== undefined ? draft[s.key] : show(s.value), onChange: ev => setDraft({ ...draft, [s.key]: ev.target.value }) }),
     s.updated_by || "—",
     draft[s.key] !== undefined ? h("button", { className: "btn sm", onClick: () => run(`${s.key} saved`, () => API.call("PATCH", `/settings/${s.key}`, { value: parse(s.key, draft[s.key]) })) }, "Save") : null]
   })))))

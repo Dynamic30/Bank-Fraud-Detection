@@ -56,8 +56,13 @@
     });
   }
 
-  var EMAILS = { officer: "meera.baruah@cybercell.example", analyst: "rahul.nair@sbi.example" };
-  function emailFor(role) { return EMAILS[role] || get(EMAIL_KEY) || DEFAULT_EMAIL; }
+  var EMAILS = {
+    officer: "meera.baruah@cybercell.example", analyst: "rahul.nair@sbi.example",
+    "analyst:SBIN": "rahul.nair@sbi.example", "analyst:HDFC": "sanjay.kulkarni@hdfc.example",
+    "analyst:ICIC": "amit.deshpande@icici.example", "analyst:UTIB": "vikas.rao@axis.example",
+    "analyst:KKBK": "rohit.malhotra@kotak.example"
+  };
+  function emailFor(role) { return role.indexOf("analyst:") === 0 ? EMAILS[role] || "" : EMAILS[role] || get(EMAIL_KEY) || DEFAULT_EMAIL; }
 
   var state = { role: "consumer", status: "idle", items: [], error: null };
   var listeners = [], inflight = null, gen = 0;
@@ -67,7 +72,7 @@
     if (inflight) return inflight;
     var mine = ++gen, email = emailFor(state.role);
     set({ status: "loading", error: null });
-    inflight = (get(USER_KEY) ? Promise.resolve(null) : login(email))
+    inflight = (get(USER_KEY) ? Promise.resolve(null) : email ? login(email) : Promise.reject(new Error("no backend user for this bank")))
       .then(function () { return loadAll(); })
       .catch(function (err) {
         if (get(USER_KEY) && /unknown user|401/.test(String(err.message))) { put(USER_KEY, ""); return login(email).then(loadAll); }
