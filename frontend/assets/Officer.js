@@ -427,12 +427,20 @@ const loadCall = () => callScript ? Promise.resolve(callScript) : fetch("./asset
 const callClip = (lang, n) => `./assets/call/${lang}-${n < 9 ? "0" : ""}${n + 1}.mp3`;
 const CALL_LANG = { hi: "Hindi", en: "English" };
 
+/* the actual dialling: not connected to a phone service yet, so for now nobody picks up. Replace with the real dialler
+   (window.PeechaDial, called once per try, resolves true when the holder picks up) when the voice agent is wired in. */
+const dial = () => window.PeechaDial ? window.PeechaDial() : new Promise(done => setTimeout(() => done(false), 1100));
+const TRIES = 3;
+
 function CallPopup({ acct, onClose, onLog }) {
  const [script, setScript] = R.useState(callScript);
  const [lang, setLang] = R.useState(null); // null while the officer is still choosing
- const [stage, setStage] = R.useState("choose"); // choose, ringing, speaking, respond, done
+ // choose, preview (the script is read out), ready (send or cancel), calling, live (picked up), respond, done
+ const [stage, setStage] = R.useState("choose");
  const [line, setLine] = R.useState(-1);
  const [voice, setVoice] = R.useState(null); // mp3 once a recording is playing, none if the browser cannot play it
+ const [attempt, setAttempt] = R.useState(0);
+ const [answered, setAnswered] = R.useState(false);
  const [err, setErr] = R.useState("");
  const stop = R.useRef(() => {});
  const box = R.useRef(null);
@@ -450,15 +458,14 @@ function CallPopup({ acct, onClose, onLog }) {
   document.addEventListener("keydown", esc);
   return () => { document.removeEventListener("keydown", esc); stop.current() }
  }, []);
- // starts inside the click on a language button, so the browser lets the sound play
- const begin = l => {
-  setLang(l); setStage("ringing"); setLine(-1); setErr("");
+ // read the script out, line by line; `after` runs when the last line ends. The first call comes from a click, so the sound is allowed.
+ const speakAll = (l, after) => {
   const a = new Audio();
   let dead = false, timer = null;
   stop.current = () => { dead = true; clearTimeout(timer); a.onended = a.onerror = null; a.pause() };
   const speak = i => {
    if (dead) return;
-   if (i >= script.lines.length) return setStage("respond");
+   if (i >= script.lines.length) return after();
    setLine(i);
    let moved = false;
    // a clip that ends, or cannot play, moves on to the next line (after a pause to read when there is no sound)
@@ -470,37 +477,60 @@ function CallPopup({ acct, onClose, onLog }) {
    const p = a.play();
    if (p && p.catch) p.catch(() => { setVoice("none"); move(3200) })
   };
-  timer = setTimeout(() => { if (!dead) { setStage("speaking"); speak(0) } }, 2200)
+  speak(0)
  };
- const reply = r => {
+ const begin = l => { setLang(l); setStage("preview"); setLine(-1); setErr(""); speakAll(l, () => setStage("ready")) };
+ const finish = (outcome, label) => {
   setStage("done"); setErr("");
-  Promise.resolve(onLog(r.outcome, r[lang])).then(ok => {
-   if (ok) setTimeout(onClose, 1400);
-   else { setStage("respond"); setErr("The call was not logged. Try again.") }
+  Promise.resolve(onLog(outcome, label)).then(ok => {
+   if (ok) setTimeout(onClose, 1800);
+   else { setStage(outcome === "noanswer" ? "ready" : "respond"); setErr("The call was not logged. Try again.") }
   })
  };
+ // Send call: ring up to three times; whoever picks up hears the warning and gives a reply, otherwise it is logged as no response
+ const send = () => {
+  setStage("calling"); setLine(-1); setErr(""); setAnswered(false);
+  let dead = false;
+  stop.current = () => { dead = true };
+  const tryOnce = n => {
+   setAttempt(n);
+   Promise.resolve(dial()).then(picked => {
+    if (dead) return;
+    if (picked) { setAnswered(true); setStage("live"); speakAll(lang, () => setStage("respond")) }
+    else if (n >= TRIES) finish("noanswer", `No call picked up (${TRIES} tries)`);
+    else setTimeout(() => tryOnce(n + 1), 100)
+   })
+  };
+  tryOnce(1)
+ };
  const L = script ? script.lines : [];
+ const pill = stage === "choose" ? "Choose the language" : stage === "preview" ? `Preview · AI voice speaking ${CALL_LANG[lang]}` :
+  stage === "ready" ? "Preview done · send the call?" : stage === "calling" ? `Calling… try ${attempt} of ${TRIES}` :
+  stage === "live" ? `Connected · AI voice speaking ${CALL_LANG[lang]}` : stage === "respond" ? "Listening for the reply" :
+  answered ? "Response recorded · logged to the case" : `No call picked up · no response after ${TRIES} tries`;
  return h("div", { className: "backdrop", style: { zIndex: 92 }, onClick: close },
   h("div", { className: "phone", onClick: ev => ev.stopPropagation(), role: "dialog", "aria-label": "Prevention call" },
    h("div", { className: "phone-top" },
     h("div", { className: "phone-kicker" }, "Peecha · outbound warning call"),
     h("div", { className: "phone-name" }, acct.holder_name || acct.account_id),
     h("div", { className: "phone-num mono" }, `${acct.phone_masked || "—"} · ${acct.bank_id ? acct.bank_id + " Bank" : acct.kind || ""}`),
-    h("div", { className: `phone-state ${stage === "speaking" || stage === "respond" ? "speaking" : "ringing"}` },
-     stage === "choose" ? "Ready to call" : stage === "ringing" ? "Ringing…" : stage === "speaking" ? `Connected · AI voice speaking ${CALL_LANG[lang]}` :
-      stage === "respond" ? "Listening for the reply" : "Call ended · logged to the case"),
-    stage === "ringing" && h("div", { className: "ring" }, h("i"), h("i"), h("i"))),
+    h("div", { className: `phone-state ${["live", "respond"].includes(stage) || stage === "done" && answered ? "speaking" : "ringing"}` }, pill),
+    stage === "calling" && h("div", { className: "ring" }, h("i"), h("i"), h("i"))),
    stage === "choose" ? h("div", { className: "phone-resp", style: { padding: "16px 2px 8px" } },
     h("div", { className: "cell-sub", style: { marginBottom: 6 } }, "Send the warning call in"),
     h("button", { className: "btn ghost sm", disabled: !script, "data-lang": "hi", onClick: () => begin("hi") }, "हिन्दी · Hindi"),
     h("button", { className: "btn ghost sm", disabled: !script, "data-lang": "en", onClick: () => begin("en") }, "English")) :
    h("div", { className: "phone-transcript", "aria-live": "polite", ref: box },
-    L.map((t, i) => h("div", { key: i, className: `tl ${i <= line ? "on" : ""} ${i === line && stage === "speaking" ? "now" : ""}` },
+    L.map((t, i) => h("div", { key: i, className: `tl ${i <= line || stage === "ready" || stage === "calling" || stage === "done" ? "on" : ""} ${i === line && (stage === "preview" || stage === "live") ? "now" : ""}` },
      h("div", null, t[lang]), lang === "hi" && h("div", { className: "tl-r" }, t.roman))),
     voice && h("div", { className: "voice-src" }, voice === "mp3" ? "● Recorded voice (ElevenLabs)" : "● No sound in this browser, transcript only")),
+   stage === "ready" && h("div", { className: "phone-resp" },
+    h("div", { className: "cell-sub", style: { marginBottom: 6 } }, `Call ${acct.holder_name || acct.account_id} on ${acct.phone_masked || "the number on file"} with this message?`),
+    h("button", { className: "btn sm", "data-act": "send", style: { background: "#3cc48c", borderColor: "#3cc48c", color: "#06231a", justifyContent: "center", fontWeight: 700 }, onClick: send }, "Send call"),
+    h("button", { className: "btn ghost sm", "data-act": "cancel", style: { justifyContent: "center" }, onClick: close }, "Cancel")),
    stage === "respond" && h("div", { className: "phone-resp" },
     h("div", { className: "cell-sub", style: { marginBottom: 6 } }, "Holder's reply (demo: pick one)"),
-    script.replies.map(r => h("button", { key: r.outcome, className: "btn ghost sm", onClick: () => reply(r) }, r[lang]))),
+    script.replies.map(r => h("button", { key: r.outcome, className: "btn ghost sm", onClick: () => finish(r.outcome, r[lang]) }, r[lang]))),
    err && h("div", { className: "note change", style: { fontSize: 12, margin: "6px 0" } }, err),
    h("div", { className: "phone-foot" },
     h("span", { className: "muted", style: { fontSize: 11.5 } }, "Production: ElevenLabs voice agent + Twilio from the bank's official number. Demo: recorded ElevenLabs voice."),

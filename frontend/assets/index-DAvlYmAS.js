@@ -12212,7 +12212,10 @@ function dh() {
     sweep: !0
    }), S.jsxs("div", {
     className: "content",
-    children: [S.jsxs("div", {
+    children: [S.jsx(H.Suspense, {
+     fallback: null,
+     children: S.jsx(FactsLz, {})
+    }), S.jsxs("div", {
      className: "topbar",
      children: [S.jsx("div", {
       style: {
@@ -12455,6 +12458,7 @@ const Oo = () => setTimeout(() => {
  }];
 
 const TourLz = H.lazy(() => $e(() => import("./Tour.js"), [], import.meta.url));
+const FactsLz = H.lazy(() => $e(() => import("./Facts.js"), [], import.meta.url));
 
 function fh() {
  const e = xt();
