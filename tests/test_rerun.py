@@ -150,3 +150,34 @@ def test_account_rerun_permissions_and_errors(client, monkeypatch):
     monkeypatch.setattr(accounts_router, "pull", broken)
     r = client.post("/api/accounts/HDFC:2222220022/rerun", headers=OFFICER)
     assert r.status_code == 502 and "db.internal" not in r.text
+
+
+def test_failure_reason_survives_a_restart(client, sql, tracing_on):
+    cid = file_new(client)
+    sql("UPDATE complaints SET last_traced_at = now() WHERE id = %s", (cid,))
+    jobs.record_problems(cid, ["ICICI:8752: icici_accounts: no account 8752", "second problem"])
+    jobs.RESULTS.clear()  # as after a restart: only the audit log remembers
+    staff = state(client, cid, OFFICER)
+    assert staff["state"] == "no_data"
+    assert staff["message"] == "ICICI:8752: icici_accounts: no account 8752 (+1 more)"
+    assert "no account 8752" not in state(client, cid)["message"]  # the victim still gets the plain wording
+
+    jobs.record_failure(cid, "OperationalError: bank source down")
+    jobs.RESULTS.clear()
+    after = state(client, cid, OFFICER)
+    assert (after["state"], after["message"]) == ("failed", "OperationalError: bank source down")
+
+    from pipeline.audit import write_audit
+    from backend.app.db import pipeline_conn
+    with pipeline_conn() as conn:  # a newer, clean run hides the old reason
+        write_audit(conn, "system:orchestrator", "TRACE", "Traced 5 transfers over 2 hops, 0 failures", cid)
+    assert state(client, cid, OFFICER)["state"] == "no_data" and "bank source down" not in state(client, cid, OFFICER)["message"]
+
+
+def test_every_trace_records_its_problems(client, sql, monkeypatch):
+    monkeypatch.setattr(jobs.orchestrator, "run", lambda cid: {"failures": [f"{cid}: no account 1"], "rows": 0})
+    jobs.trace("C-3001")
+    texts = [r["text"] for r in sql("SELECT text FROM audit_log WHERE complaint_id = 'C-3001' AND kind = 'TRACE'").fetchall()]
+    assert texts == ["Trace of C-3001 had problems: C-3001: no account 1"]
+    jobs.RESULTS.clear()
+

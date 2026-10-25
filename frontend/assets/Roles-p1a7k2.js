@@ -636,7 +636,13 @@ export function FileComplaint() {
   ...f,
   [k]: ev.target.value
  });
- const ok = f.name.trim() && Number(f.amount) > 0 && f.victimAccount.trim() && f.ref.trim();
+ const acct = API.normAccount ? API.normAccount(f.victimAccount) : {
+   ok: !!f.victimAccount.trim()
+  },
+  refc = API.checkRef ? API.checkRef(f.ref, f.destination === "crypto") : {
+   ok: !!f.ref.trim()
+  };
+ const ok = f.name.trim() && Number(f.amount) > 0 && acct.ok && refc.ok;
  const fld = (label, node) => h("label", null, label, node);
  return h(Modal, {
    label: "File a complaint",
@@ -671,12 +677,23 @@ export function FileComplaint() {
     value: f.city,
     onChange: set("city")
    })),
-   fld("Account the money left from", h("input", {
-    className: "input",
+   fld("Account the money left from", h(R.Fragment, null, h("input", {
+    className: "input mono",
     value: f.victimAccount,
     onChange: set("victimAccount"),
-    placeholder: "Bank and last 4 digits"
-   })),
+    placeholder: "ICICI:876296367481 (bank and full number)"
+   }), f.victimAccount.trim() && (acct.ok ? acct.value !== f.victimAccount.trim() && h("div", {
+    className: "cell-sub",
+    style: {
+     marginTop: 4
+    }
+   }, `Will be filed as ${acct.value}`) : h("div", {
+    className: "cell-sub",
+    style: {
+     marginTop: 4,
+     color: "var(--risk-high, #b91c1c)"
+    }
+   }, acct.error)))),
    fld("Type of scam", h("select", {
     className: "select",
     value: f.scamType,
@@ -747,7 +764,7 @@ export function FileComplaint() {
    style: {
     marginTop: 14
    }
-  }, "To submit, still needed: " + [!f.name.trim() && "your name", !(Number(f.amount) > 0) && "the amount lost", !f.victimAccount.trim() && "the account the money left from", !f.ref.trim() && "the UTR or UPI ID"].filter(Boolean).join(", ")) : null,
+  }, "To submit: " + [!f.name.trim() && "enter your name", !(Number(f.amount) > 0) && "enter the amount lost", !acct.ok && acct.error, !refc.ok && refc.error].filter(Boolean).join(". ")) : null,
   err && h("div", {
    className: "note change",
    style: {

@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
@@ -62,6 +63,28 @@ class ComplaintIn(BaseModel):
     payments: list[PaymentIn] = []
 
 
+ACCOUNT = re.compile(r"^([A-Z]{2,10})[\s:\-_/.]*((?=[A-Z0-9]*\d)[A-Z0-9]{1,24})$")
+MIN_ACCOUNT_DIGITS = 8
+
+
+def clean_account(conn, raw: str | None) -> str | None:
+    """'icici 876296367481', 'ICICI-876296367481' and 'ICICI:876296367481' are all ICICI:876296367481; anything else is refused."""
+    text = (raw or "").strip().upper().replace(" BANK ", " ")
+    if not text:
+        return None
+    found = ACCOUNT.match(text)
+    if not found:
+        raise HTTPException(422, "The account must be the bank and the full number, like ICICI:876296367481")
+    bank, number = found.groups()
+    known = conn.execute("SELECT id FROM banks WHERE id = %s OR ifsc_prefix = %s", (bank, bank)).fetchone()
+    if known is None:
+        raise HTTPException(422, f"Unknown bank '{bank}'. Use the bank code, like ICICI:876296367481")
+    bank = known["id"]
+    if len(number) < MIN_ACCOUNT_DIGITS:
+        raise HTTPException(422, f"'{number}' is too short to be a full account number ({len(number)} characters)")
+    return f"{bank}:{number}"
+
+
 _FILED_VIA = {"officer": "officer", "bank_analyst": "bank", "bank_admin": "bank", "consumer": "self"}
 
 
@@ -113,11 +136,21 @@ def complaint_trail(complaint_id: str, method: Literal["fifo", "lifo", "prorata"
     return mask(user, "trail", rows)
 
 
+def saved_outcome(conn, complaint_id: str) -> dict | None:
+    """What the audit log says about the latest trace, for when this process has not run it (restart, other instance)."""
+    row = conn.execute("SELECT text FROM audit_log WHERE complaint_id = %s AND kind = 'TRACE' ORDER BY seq DESC LIMIT 1",
+                       (complaint_id,)).fetchone()
+    found = re.search(r" (failed|had problems): (.+)$", row["text"]) if row else None
+    if not found:
+        return None
+    return {"error": found[2], "failures": []} if found[1] == "failed" else {"error": None, "failures": [found[2]]}
+
+
 def trace_status(conn, user: User, row: dict) -> dict:
     """Where this complaint's trace stands: running, done, no_data, failed, waiting, not_started or not_configured."""
     cid = row["id"]
     rows = conn.execute("SELECT count(*) AS n FROM victim_mapping WHERE complaint_id = %s AND method = 'fifo'", (cid,)).fetchone()["n"]
-    last = jobs.RESULTS.get(cid)
+    last = jobs.RESULTS.get(cid) or saved_outcome(conn, cid)
     busy = cid in jobs.RUNNING
     if not busy:  # a run started by the periodic job or another instance holds the same lock
         got = conn.execute("SELECT pg_try_advisory_lock(%s, hashtext(%s)) AS got", (orchestrator.LOCK_KEY, cid)).fetchone()["got"]
@@ -201,6 +234,7 @@ def file_complaint(body: ComplaintIn, user: User = Depends(current_user), conn=D
         if owner and conn.execute("SELECT 1 FROM app_users WHERE id = %s AND role = 'consumer'",
                                   (owner,)).fetchone() is None:
             raise HTTPException(422, "owner_user_id must be a consumer user")
+    body.victim_account_id = clean_account(conn, body.victim_account_id)
     if user.is_bank and body.victim_account_id and body.victim_account_id.partition(":")[0] != user.bank_id:
         raise HTTPException(403, "a bank can only file for its own customers' accounts")
 
