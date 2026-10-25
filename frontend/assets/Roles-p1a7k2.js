@@ -19,6 +19,7 @@ import {
  k as dl,
  D as ROLES
 } from "./index-DAvlYmAS.js";
+import { Offline } from "./Officer.js";
 const h = R.createElement;
 /* live backend data for the consumer screens (assets/api.js); status "live" = use it, anything else = demo engine */
 const API = window.PeechaAPI || {
@@ -29,11 +30,17 @@ const API = window.PeechaAPI || {
 };
 
 function useLive() {
- const s = R.useSyncExternalStore(API.subscribe, API.get);
+ const s = R.useSyncExternalStore(API.subscribe, API.get),
+  e = useApp(),
+  role = e.user ? (e.user.key === "analyst" ? "analyst:" + e.bank : e.user.key) : "consumer";
  R.useEffect(() => {
-  if (s.status === "idle") API.refresh()
- }, [s.status]);
- return s
+  API.use && API.use(role)
+ }, [role, s.status]);
+ return s.role === role ? s : {
+  ...s,
+  status: "idle",
+  items: []
+ }
 }
 const utcDate = ts => ts ? new Date(/Z|[+-]\d\d:?\d\d$/.test(ts) ? ts : ts + "Z") : null;
 const liveWhen = ts => {
@@ -609,7 +616,7 @@ export function FileComplaint() {
   role = e.user.key;
  const me = role === "consumer" ? W.accounts[e.victimId] : null;
  const [f, setF] = R.useState({
-  name: me ? me.name : "",
+  name: role === "consumer" ? API.get().userName || "" : "",
   phone: "",
   city: me ? me.city : "",
   victimAccount: me ? `${BS[me.bank]} ${me.mask}` : "",
@@ -622,7 +629,7 @@ export function FileComplaint() {
  });
  const [busy, setBusy] = R.useState(false);
  const live = useLive(),
-  useBackend = role === "consumer" && live.status === "live";
+  useBackend = live.status === "live";
  const set = k => ev => setF({
   ...f,
   [k]: ev.target.value
@@ -722,9 +729,9 @@ export function FileComplaint() {
    },
    h("button", {
     className: "btn",
-    disabled: !ok || busy,
+    disabled: !ok || busy || !useBackend,
     onClick: () => {
-     if (!useBackend) return e.fileComplaint(f);
+     if (!useBackend) return;
      setBusy(true);
      API.file(f).then(r => {
       e.close();
@@ -860,7 +867,14 @@ function LiveCard({
   payments,
   trail
  } = it, [det, setDet] = R.useState(false);
- const tracing = c.status !== "open";
+ const tracing = c.status !== "open",
+  hop0 = trail.length ? Math.min(...trail.map(x => x.hop)) : 0,
+  sum = f => trail.filter(f).reduce((t, x) => t + Number(x.traced_amount), 0),
+  first = sum(x => x.hop === hop0),
+  cash = sum(x => x.to_ref === "CASH"),
+  blocked = sum(x => x.status === "blocked"),
+  cryptoHop = trail.filter(x => x.leg === "crypto").map(x => x.hop),
+  crypto = cryptoHop.length ? sum(x => x.leg === "crypto" && x.hop === Math.min(...cryptoHop)) : 0;
  return h(Card, {
    title: c.scam_type,
    sub: `${c.id} · reported ${liveWhen(c.reported_at)} · ${inr(Number(c.total_lost))} lost`,
@@ -883,6 +897,29 @@ function LiveCard({
     marginTop: 12
    }
   }, c.status === "open" ? "Received. An officer will start the trace shortly." : trail.length ? `Your money has moved through ${new Set(trail.map(x => x.to_ref)).size} account(s) so far.` : "An officer has started tracing your money."),
+  trail.length > 0 && h("div", {
+   className: "kpis",
+   style: {
+    marginTop: 12
+   }
+  }, h(Kpi, {
+   label: "Lost",
+   value: inrS(Number(c.total_lost))
+  }), h(Kpi, {
+   label: "Followed so far",
+   value: inrS(first)
+  }), h(Kpi, {
+   label: "Withdrawn as cash",
+   value: inrS(cash),
+   tone: "exit"
+  }), h(Kpi, {
+   label: "Stopped",
+   value: inrS(blocked),
+   tone: "rec"
+  })),
+  crypto > 0 && h("div", {
+   className: "note info"
+  }, `${inrS(crypto)} of your money was converted to crypto (USDT).`),
   payments.length > 0 && h("div", {
    className: "note info"
   }, `You reported ${payments.length} payment(s) totalling ${inr(payments.reduce((s, p) => s + Number(p.amount), 0))}.`),
@@ -942,56 +979,12 @@ function LiveMine({
   }, h("b", null, "You have no complaints yet."), h("span", null, "File one and we will start following your money.")))));
 }
 export function Mine() {
- const e = useApp(),
-  live = useLive(),
-  cases = e.D.cases,
-  mine = e.myFiled || [];
- if (live.status === "live") return h(LiveMine, {
+ const live = useLive();
+ return live.status === "live" ? h(LiveMine, {
   items: live.items
-});
- return h(R.Fragment, null,
-  h(PageHead, {
-   title: "My complaints",
-   desc: "See where your complaint stands and where your money is now.",
-   actions: h("button", {
-    className: "btn",
-    onClick: () => e.open("file")
-   }, "＋ File a complaint")
-  }),
-  cases.map(c => h(CaseCard, {
-   key: c.id,
-   c
-  })),
-  mine.slice().reverse().map(f => h(Card, {
-    key: f.id,
-    title: f.scamType,
-    sub: `${f.id} · ${inr(f.amount)} lost · paid to a ${f.destination==="crypto"?"crypto wallet":"bank account / UPI"}`,
-    style: {
-     marginTop: 18
-    }
-   },
-   h(Steps, {
-    items: [
-     ["Filed", true],
-     ["Tracing", f.status !== "filed"],
-     ["Bank notified", false],
-     ["Money held", false]
-    ]
-   }),
-   h("p", {
-    className: "sec",
-    style: {
-     fontSize: 13,
-     marginTop: 12
-    }
-   }, f.status === "filed" ? "Received. An officer will start the trace shortly." : "An officer has started tracing your money."))),
-  cases.length === 0 && mine.length === 0 && h("div", {
-   style: {
-    marginTop: 18
-   }
-  }, h(Card, {}, h("div", {
-   className: "empty"
-  }, h("b", null, "You have no complaints yet."), h("span", null, "File one and we will start following your money.")))));
+ }) : h(Offline, {
+  state: live
+ })
 }
 
 /* ------------------------------------------------------------------ Cases */
@@ -1687,18 +1680,18 @@ function liveReportText({
  c,
  payments,
  trail
-}) {
+}, mine = true) {
  const L = ["PEECHA — COMPLAINT REPORT", "For use when contacting your bank or the police.", "",
   `Complaint number: ${c.id}`, `Type of scam: ${c.scam_type}`, `Reported: ${liveWhen(c.reported_at)} (${c.filed_via})`, `Name: ${c.name}`, `City: ${c.city||"—"}`,
   `Amount lost: ${inr(Number(c.total_lost))}`, `When it happened: ${liveWhen(c.fraud_time)}`, "",
   `STATUS: Filed [done] > Tracing [${c.status!=="open"?"done":"not yet"}] > Bank notified [${c.status==="actioned"||c.status==="closed"?"done":"not yet"}] > Money held [${c.status==="closed"?"done":"not yet"}]`, "",
-  "PAYMENTS FROM YOUR ACCOUNT"
+  mine ? "PAYMENTS FROM YOUR ACCOUNT" : "PAYMENTS REPORTED BY THE VICTIM"
  ];
  if (!payments.length) L.push("  None recorded.");
  for (const p of payments) L.push(`  ${liveWhen(p.paid_at)} · ${inr(Number(p.amount))} · ${p.destination_type==="crypto"?`crypto wallet ${p.wallet_address}`:`reference ${p.utr||p.paid_to_upi_id||p.paid_to_account_no||"—"}`}`);
- L.push("", "WHAT HAPPENED", `  ${c.incident_description||"—"}`, "", "WHERE YOUR MONEY WENT (other accounts are masked)");
+ L.push("", "WHAT HAPPENED", `  ${c.incident_description||"—"}`, "", mine ? "WHERE YOUR MONEY WENT (other accounts are masked)" : "WHERE THE MONEY WENT");
  if (!trail.length) L.push("  Not traced yet.");
- for (const l of trail) L.push(`  ${liveWhen(l.ts)} · ${l.from_ref} -> ${l.to_ref} · ${inrS(Number(l.traced_amount))} of your money · ${l.rail}`);
+ for (const l of trail) L.push(`  ${liveWhen(l.ts)} · ${l.from_ref} -> ${l.to_ref} · ${inrS(Number(l.traced_amount))} of ${mine?"your":"the victim's"} money · ${l.rail}`);
  return L.join("\n")
 }
 
@@ -1708,24 +1701,12 @@ function ConsumerReports() {
   {
    D
   } = e;
- const items = live.status === "live" ? live.items.map(it => ({
+ const items = live.items.map(it => ({
   id: it.c.id,
   title: it.c.scam_type,
   sub: `${inr(Number(it.c.total_lost))} lost`,
-  text: () => liveReportText(it)
- })) : [...D.cases.map(c => ({
-   id: c.id,
-   title: c.type,
-   sub: `${inr(c.amount)} lost`,
-   text: () => caseReportText(e, c)
-  })),
-  ...e.myFiled.map(f => ({
-   id: f.id,
-   title: f.scamType,
-   sub: `${inr(f.amount)} lost · filed by you`,
-   text: () => filedReportText(e, f)
-  }))
- ];
+  text: () => liveReportText(it, e.user.key === "consumer")
+ }));
  const make = list => {
   const body = list.map(i => i.text()).join("\n\n" + "=".repeat(60) + "\n\n");
   return {
@@ -1752,11 +1733,11 @@ function ConsumerReports() {
  return h(R.Fragment, null,
   h(PageHead, {
    title: "Reports",
-   desc: "Download a report of your complaint to give to your bank or the police, or to ask for a statement.",
+   desc: e.user.key === "consumer" ? "Download a report of your complaint to give to your bank or the police, or to ask for a statement." : "Download a report of each complaint, with its payments and money trail, to share with a bank or the police.",
    actions: items.length ? h("button", {
     className: "btn",
     onClick: () => down(items, "my_complaints_report.txt")
-   }, "Download all my reports") : null
+   }, e.user.key === "consumer" ? "Download all my reports" : "Download all reports") : null
   }),
   items.length === 0 ? h("div", {
    style: {
@@ -1792,6 +1773,8 @@ function ConsumerReports() {
     }, "Print / PDF")))));
 }
 export function Reports() {
- const e = useApp();
- return e.user.key === "consumer" ? h(ConsumerReports, null) : h(ActionReport, null)
+ const live = useLive();
+ return live.status === "live" ? h(ConsumerReports, null) : h(Offline, {
+  state: live
+ })
 }

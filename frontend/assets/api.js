@@ -41,6 +41,7 @@
   function login(email) {
     return call("POST", "/login", { email: email }).then(function (u) {
       put(USER_KEY, u.user_id);
+      put("pc-user-name", u.name || "");
       return u;
     });
   }
@@ -56,24 +57,62 @@
     });
   }
 
-  var state = { status: "idle", items: [], user: null, error: null };
-  var listeners = [], inflight = null;
+  var BANKS = {
+    SBIN: "SBI", PUNB: "PNB", BARB: "BOB", CNRB: "CANARA", UBIN: "UBI", IDIB: "INDIAN", ICIC: "ICICI", UTIB: "AXIS",
+    INDB: "INDUSIND", YESB: "YES", RATN: "RBL", KKBK: "KOTAK", IDFB: "IDFC", FDRL: "FEDERAL", BDBL: "BANDHAN", HDFC: "HDFC",
+    AUBL: "AU", ESFB: "EQUITAS", SIBL: "SIB", PYTM: "PAYTM", IPOS: "IPPB", AIRP: "AIRTEL"
+  };
+  var EMAILS = {
+    officer: "meera.baruah@cybercell.example", analyst: "rahul.nair@sbi.example",
+    "analyst:SBIN": "rahul.nair@sbi.example", "analyst:HDFC": "sanjay.kulkarni@hdfc.example",
+    "analyst:ICIC": "amit.deshpande@icici.example", "analyst:UTIB": "vikas.rao@axis.example",
+    "analyst:KKBK": "rohit.malhotra@kotak.example"
+  };
+  function emailFor(role) {
+    if (role.indexOf("analyst:") !== 0) return EMAILS[role] || get(EMAIL_KEY) || DEFAULT_EMAIL;
+    var code = BANKS[role.slice(8)];
+    return EMAILS[role] || (code ? "analyst@" + code.toLowerCase() + ".example" : "");
+  }
+
+  // counts for the sidebar and the clock; staff only, failures just leave them empty
+  function loadMeta(role) {
+    if (role === "consumer") return Promise.resolve(null);
+    var pendingStatus = role === "officer" ? "active" : "requested";
+    return Promise.all([
+      call("GET", "/holds?limit=500"),
+      call("GET", "/accounts?min_score=40&limit=500"),
+      call("GET", "/settings").catch(function () { return []; })
+    ]).then(function (r) {
+      var clock = (r[2].filter(function (x) { return x.key === "demo_clock"; })[0] || {}).value;
+      return { pendingHolds: r[0].filter(function (h) { return h.status === pendingStatus; }).length, flagged: r[1].length, clock: clock || null };
+    }).catch(function () { return null; });
+  }
+
+  var state = { role: "consumer", status: "idle", items: [], meta: null, error: null };
+  var listeners = [], inflight = null, gen = 0;
   function set(next) { state = Object.assign({}, state, next); listeners.forEach(function (fn) { fn(); }); }
 
   function refresh() {
     if (inflight) return inflight;
-    set({ status: "loading", error: null });
-    var email = get(EMAIL_KEY) || DEFAULT_EMAIL;
-    inflight = (get(USER_KEY) ? Promise.resolve(null) : login(email))
+    var mine = ++gen, email = emailFor(state.role);
+    set({ status: state.status === "live" ? "live" : "loading", error: null });
+    inflight = (get(USER_KEY) ? Promise.resolve(null) : email ? login(email) : Promise.reject(new Error("no backend user for this bank")))
       .then(function () { return loadAll(); })
       .catch(function (err) {
         if (get(USER_KEY) && /unknown user|401/.test(String(err.message))) { put(USER_KEY, ""); return login(email).then(loadAll); }
         throw err;
       })
-      .then(function (items) { set({ status: "live", items: items }); })
-      .catch(function (err) { set({ status: "offline", items: [], error: String(err.message || err) }); })
-      .then(function () { inflight = null; });
+      .then(function (items) { return loadMeta(state.role).then(function (meta) { return { items: items, meta: meta }; }); })
+      .then(function (r) { if (mine === gen) set({ status: "live", items: r.items, meta: r.meta, userName: get("pc-user-name") }); },
+            function (err) { if (mine === gen) set({ status: "offline", items: [], meta: null, error: String(err.message || err) }); })
+      .then(function () { if (mine === gen) inflight = null; });
     return inflight;
+  }
+
+  // pick the identity for the current screen's role; switching role logs in again as that user
+  function use(role) {
+    if (role && role !== state.role) { put(USER_KEY, ""); inflight = null; gen++; set({ role: role, status: "idle", items: [], meta: null, error: null }); }
+    if (state.status === "idle") refresh();
   }
 
   function file(f) {
@@ -88,15 +127,20 @@
       fraud_time: f.fraudTime || new Date().toISOString().slice(0, 19),
       payments: [pay]
     };
+    if (/^[A-Z0-9]+:[A-Za-z0-9]+$/.test((f.victimAccount || "").trim())) body.victim_account_id = f.victimAccount.trim();
     return call("POST", "/complaints", body).then(function (r) { return refresh().then(function () { return r; }); });
   }
 
   window.PeechaAPI = {
     get: function () { return state; },
     subscribe: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (x) { return x !== fn; }); }; },
+    banks: BANKS,
+    pick: { case: null, account: null },
     refresh: refresh,
+    use: use,
+    call: call,
     file: file,
     login: login,
-    reset: function () { put(USER_KEY, ""); inflight = null; set({ status: "idle", items: [], error: null }); }
+    reset: function () { put(USER_KEY, ""); inflight = null; gen++; set({ status: "idle", items: [], meta: null, error: null }); }
   };
 })();
