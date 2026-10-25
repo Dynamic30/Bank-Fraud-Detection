@@ -11,7 +11,6 @@ import {
    index renders these instead of the demo pages when the backend is reachable (status "live"). */
 const h = R.createElement;
 const API = window.PeechaAPI;
-let selected = null;
 
 const when = ts => {
  if (!ts) return "—";
@@ -77,14 +76,14 @@ function Inbox() {
      src: i.c.id,
      cells: [h("div", null, h("div", { className: "cell-main mono" }, i.c.id), h("div", { className: "cell-sub" }, i.c.name, " · ", i.c.city || "—")),
       i.c.scam_type, money(i.c.total_lost), i.c.channel, i.c.filed_via, pill(i.c.status), when(i.c.reported_at)]
-    })), id => { selected = id; e.go("trail") }))))
+    })), id => { API.pick.case = id; e.go("trail") }))))
 }
 
 /* ------------------------------------------------------------------ Trail */
 function Trail() {
  const e = useApp(),
   items = API.get().items;
- const [id, setId] = R.useState(selected && items.some(i => i.c.id === selected) ? selected : items.length ? items[0].c.id : "");
+ const [id, setId] = R.useState(API.pick.case && items.some(i => i.c.id === API.pick.case) ? API.pick.case : items.length ? items[0].c.id : "");
  const [method, setMethod] = R.useState("fifo");
  const it = items.find(i => i.c.id === id);
  const st = useGet(id ? `/complaints/${id}/trail?method=${method}` : null, [id, method]);
@@ -95,7 +94,7 @@ function Trail() {
   h(PageHead, { title: "Money trail", desc: "Where the victim's money went, hop by hop. FIFO, LIFO and pro-rata are three ways of attributing it." }),
   items.length === 0 ? h(Card, {}, Empty("No complaints yet.", "File or receive a complaint to see its trail.")) : h(R.Fragment, null,
    h("div", { className: "btn-row" },
-    h("select", { className: "input", value: id, onChange: ev => { selected = ev.target.value; setId(ev.target.value) } },
+    h("select", { className: "input", value: id, onChange: ev => { API.pick.case = ev.target.value; setId(ev.target.value) } },
      items.map(i => h("option", { key: i.c.id, value: i.c.id }, `${i.c.id} · ${i.c.scam_type} · ${money(i.c.total_lost)}`))),
     ["fifo", "lifo", "prorata"].map(m => h("button", { key: m, className: "btn sm " + (m === method ? "" : "ghost"), onClick: () => setMethod(m) }, m.toUpperCase()))),
    it && h("div", { className: "kpis", style: { marginTop: 14 } },
@@ -121,7 +120,7 @@ function Radar() {
   officer = e.user.key === "officer",
   accts = useGet("/accounts?limit=200"),
   mules = useGet("/mules?limit=200");
- const [sel, setSel] = R.useState(null);
+ const [sel, setSel] = R.useState(API.pick.account);
  const detail = useGet(sel ? `/accounts/${encodeURIComponent(sel)}` : null, [sel]);
  const run = useDo(e, null);
  const a = detail.data;

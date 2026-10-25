@@ -866,7 +866,14 @@ function LiveCard({
   payments,
   trail
  } = it, [det, setDet] = R.useState(false);
- const tracing = c.status !== "open";
+ const tracing = c.status !== "open",
+  hop0 = trail.length ? Math.min(...trail.map(x => x.hop)) : 0,
+  sum = f => trail.filter(f).reduce((t, x) => t + Number(x.traced_amount), 0),
+  first = sum(x => x.hop === hop0),
+  cash = sum(x => x.to_ref === "CASH"),
+  blocked = sum(x => x.status === "blocked"),
+  cryptoHop = trail.filter(x => x.leg === "crypto").map(x => x.hop),
+  crypto = cryptoHop.length ? sum(x => x.leg === "crypto" && x.hop === Math.min(...cryptoHop)) : 0;
  return h(Card, {
    title: c.scam_type,
    sub: `${c.id} · reported ${liveWhen(c.reported_at)} · ${inr(Number(c.total_lost))} lost`,
@@ -889,6 +896,29 @@ function LiveCard({
     marginTop: 12
    }
   }, c.status === "open" ? "Received. An officer will start the trace shortly." : trail.length ? `Your money has moved through ${new Set(trail.map(x => x.to_ref)).size} account(s) so far.` : "An officer has started tracing your money."),
+  trail.length > 0 && h("div", {
+   className: "kpis",
+   style: {
+    marginTop: 12
+   }
+  }, h(Kpi, {
+   label: "Lost",
+   value: inrS(Number(c.total_lost))
+  }), h(Kpi, {
+   label: "Followed so far",
+   value: inrS(first)
+  }), h(Kpi, {
+   label: "Withdrawn as cash",
+   value: inrS(cash),
+   tone: "exit"
+  }), h(Kpi, {
+   label: "Stopped",
+   value: inrS(blocked),
+   tone: "rec"
+  })),
+  crypto > 0 && h("div", {
+   className: "note info"
+  }, `${inrS(crypto)} of your money was converted to crypto (USDT).`),
   payments.length > 0 && h("div", {
    className: "note info"
   }, `You reported ${payments.length} payment(s) totalling ${inr(payments.reduce((s, p) => s + Number(p.amount), 0))}.`),
@@ -1693,18 +1723,18 @@ function liveReportText({
  c,
  payments,
  trail
-}) {
+}, mine = true) {
  const L = ["PEECHA — COMPLAINT REPORT", "For use when contacting your bank or the police.", "",
   `Complaint number: ${c.id}`, `Type of scam: ${c.scam_type}`, `Reported: ${liveWhen(c.reported_at)} (${c.filed_via})`, `Name: ${c.name}`, `City: ${c.city||"—"}`,
   `Amount lost: ${inr(Number(c.total_lost))}`, `When it happened: ${liveWhen(c.fraud_time)}`, "",
   `STATUS: Filed [done] > Tracing [${c.status!=="open"?"done":"not yet"}] > Bank notified [${c.status==="actioned"||c.status==="closed"?"done":"not yet"}] > Money held [${c.status==="closed"?"done":"not yet"}]`, "",
-  "PAYMENTS FROM YOUR ACCOUNT"
+  mine ? "PAYMENTS FROM YOUR ACCOUNT" : "PAYMENTS REPORTED BY THE VICTIM"
  ];
  if (!payments.length) L.push("  None recorded.");
  for (const p of payments) L.push(`  ${liveWhen(p.paid_at)} · ${inr(Number(p.amount))} · ${p.destination_type==="crypto"?`crypto wallet ${p.wallet_address}`:`reference ${p.utr||p.paid_to_upi_id||p.paid_to_account_no||"—"}`}`);
- L.push("", "WHAT HAPPENED", `  ${c.incident_description||"—"}`, "", "WHERE YOUR MONEY WENT (other accounts are masked)");
+ L.push("", "WHAT HAPPENED", `  ${c.incident_description||"—"}`, "", mine ? "WHERE YOUR MONEY WENT (other accounts are masked)" : "WHERE THE MONEY WENT");
  if (!trail.length) L.push("  Not traced yet.");
- for (const l of trail) L.push(`  ${liveWhen(l.ts)} · ${l.from_ref} -> ${l.to_ref} · ${inrS(Number(l.traced_amount))} of your money · ${l.rail}`);
+ for (const l of trail) L.push(`  ${liveWhen(l.ts)} · ${l.from_ref} -> ${l.to_ref} · ${inrS(Number(l.traced_amount))} of ${mine?"your":"the victim's"} money · ${l.rail}`);
  return L.join("\n")
 }
 
@@ -1718,7 +1748,7 @@ function ConsumerReports() {
   id: it.c.id,
   title: it.c.scam_type,
   sub: `${inr(Number(it.c.total_lost))} lost`,
-  text: () => liveReportText(it)
+  text: () => liveReportText(it, e.user.key === "consumer")
  })) : [...D.cases.map(c => ({
    id: c.id,
    title: c.type,
@@ -1758,11 +1788,11 @@ function ConsumerReports() {
  return h(R.Fragment, null,
   h(PageHead, {
    title: "Reports",
-   desc: "Download a report of your complaint to give to your bank or the police, or to ask for a statement.",
+   desc: e.user.key === "consumer" ? "Download a report of your complaint to give to your bank or the police, or to ask for a statement." : "Download a report of each complaint, with its payments and money trail, to share with a bank or the police.",
    actions: items.length ? h("button", {
     className: "btn",
     onClick: () => down(items, "my_complaints_report.txt")
-   }, "Download all my reports") : null
+   }, e.user.key === "consumer" ? "Download all my reports" : "Download all reports") : null
   }),
   items.length === 0 ? h("div", {
    style: {
