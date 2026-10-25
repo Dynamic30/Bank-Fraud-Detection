@@ -560,38 +560,18 @@ function Audit() {
     log.data.map(x => ({ cells: [x.seq, when(x.ts), x.kind, x.actor, x.complaint_id || "—", x.text, h("span", { className: "mono", title: x.hash }, x.hash.slice(0, 10) + "…")] }))) : null)))
 }
 
-/* --------------------------------------------------------------- Settings */
-function SettingsCard() {
- const e = useApp(),
-  officer = e.user.key === "officer",
-  st = useGet("/settings");
- const [draft, setDraft] = R.useState({});
- const run = useDo(e, () => { st.reload(); setDraft({}) });
- const show = v => v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v);
- const parse = (key, s) => key === "demo_clock" ? (s.trim() === "" ? null : s.trim()) : Number(s);
- return h("div", { style: { marginTop: 18 } }, h(Card, { title: "Server settings", sub: officer ? "Stored in the backend. Changes are audited." : "Stored in the backend. Only an officer can change them." },
-  h(Status, { st }),
-  st.data && Table([["Setting"], ["Value"], ["Updated by"], [""]], st.data.map(s => ({
-   cells: [h("span", { className: "mono" }, s.key),
-    h("input", { className: "input mono", disabled: !officer, value: draft[s.key] !== undefined ? draft[s.key] : show(s.value), onChange: ev => setDraft({ ...draft, [s.key]: ev.target.value }) }),
-    s.updated_by || "—",
-    draft[s.key] !== undefined ? h("button", { className: "btn sm", onClick: () => run(`${s.key} saved`, () => API.call("PATCH", `/settings/${s.key}`, { value: parse(s.key, draft[s.key]) })) }, "Save") : null]
-  })))))
-}
-
 /* ---------------------------------------------------------- Offline panel */
 function Offline({ state }) {
  const e = useApp();
  const base = API.baseUrl ? API.baseUrl() : "";
  if (!state || state.status === "idle" || state.status === "loading") return h("div", { className: "empty", style: { padding: 40 } }, h("b", null, "Connecting to the backend…"));
  return h(R.Fragment, null,
-  h(PageHead, { title: "Backend not reachable", desc: "Peecha shows live data only. Start the backend, or point Peecha at it in Settings." }),
+  h(PageHead, { title: "Backend not reachable", desc: "Peecha shows live data only. Check that the server is running, then try again." }),
   h(Card, {},
    h("div", { className: "note change" }, state.error || "No response"),
    h("p", { className: "sec", style: { fontSize: 13, marginTop: 12 } }, `Trying ${base || "this site"}/api. Sign-in uses the seeded users (see backend/app_users_seed.sql).`),
    h("div", { className: "btn-row", style: { marginTop: 12 } },
-    h("button", { className: "btn", onClick: () => API.reset() }, "Retry"),
-    h("button", { className: "btn ghost", onClick: () => e.go("settings") }, "Open Settings"))))
+    h("button", { className: "btn", onClick: () => API.reset() }, "Retry"))))
 }
 
 /* ------------------------------------------------------------------ Model */
@@ -619,7 +599,7 @@ function Model() {
 }
 
 const PAGES = { inbox: Inbox, trail: Trail, accounts: Radar, prevent: Calls, holds: Holds, action: Actions, audit: Audit, model: Model };
-export { SettingsCard, Offline };
+export { Offline };
 export default function OfficerPage({ page }) {
  const C = PAGES[page];
  return C ? h(C, null) : null
