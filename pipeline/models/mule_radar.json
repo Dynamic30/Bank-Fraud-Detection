@@ -19,8 +19,8 @@
     "NETWORK": {"cap": 25},
     "PROFILE": {"cap": 20},
     "EXIT": {"cap": 20},
-    "STRUCT": {"cap": 10, "notes": "Weak signals."},
-    "MISC": {"cap": 6},
+    "STRUCT": {"cap": 15, "notes": "Weak signals."},
+    "MISC": {"cap": 10},
     "NEG": {"cap": -30}
   },
   "rules": [
@@ -29,9 +29,9 @@
       "feature": "pt_ratio_{15m,60m,24h}: FIFO allocation of debits to prior credits, over 7d of credits",
       "preconditions": {"credits_sum_inr_gte": 10000, "credit_count_gte": 2},
       "tiers": [
-        {"severity": "low", "condition": "pt_ratio_24h >= 0.80", "points": 10, "source": "RUSI/Lloyds 2025: under 15% remained after 24h; vendor rule 80% out in 48h"},
-        {"severity": "medium", "condition": "pt_ratio_60m >= 0.50", "points": 18, "source": "RUSI/Lloyds 2025: about 28% out in 15 min plus about 25% within 1h"},
-        {"severity": "high", "condition": "pt_ratio_15m >= 0.50", "points": 25, "source": "RUSI/Lloyds 2025; the 0.50 cut is assumption"}
+        {"severity": "low", "condition": "pt_ratio_24h >= 0.80", "points": 20, "source": "RUSI/Lloyds 2025: under 15% remained after 24h; vendor rule 80% out in 48h"},
+        {"severity": "medium", "condition": "pt_ratio_60m >= 0.50", "points": 26, "source": "RUSI/Lloyds 2025: about 28% out in 15 min plus about 25% within 1h"},
+        {"severity": "high", "condition": "pt_ratio_15m >= 0.50", "points": 30, "source": "RUSI/Lloyds 2025; the 0.50 cut is assumption"}
       ],
       "reason": "{pct}% of Rs {in_amt} received was sent out within {window} (median hold {dwell} min)"
     },
@@ -49,7 +49,7 @@
       "id": "R03", "family": "FLOW", "name": "new_beneficiaries",
       "feature": "new_benef_24h",
       "tiers": [
-        {"severity": "medium", "condition": "new_benef_24h >= 5", "points": 6, "source": "assumption"},
+        {"severity": "medium", "condition": "new_benef_24h >= 5", "points": 10, "source": "assumption"},
         {"severity": "high", "condition": "new_benef_24h >= 10", "points": 10, "source": "vendor rule (10+ new beneficiaries in 24h)"}
       ],
       "reason": "Paid {n} new beneficiaries within 24 h"
@@ -58,7 +58,7 @@
       "id": "R04", "family": "FLOW", "name": "near_zero_balance",
       "feature": "share of active days (30d) with eod_balance <= max(1000, 0.05 * day_credits)",
       "requires_inputs": ["accounts.opening_balance"],
-      "tiers": [{"severity": "medium", "condition": "share >= 0.70 AND active_days >= 5", "points": 6, "source": "vendor typologies; numbers assumption"}],
+      "tiers": [{"severity": "medium", "condition": "share >= 0.70 AND active_days >= 5", "points": 1, "source": "vendor typologies; numbers assumption"}],
       "reason": "Balance returned to near zero on {k}/{n} active days",
       "notes": "Disabled when opening_balance is NULL."
     },
@@ -67,8 +67,8 @@
       "feature": "burst_ratio_24h = credits_24h / median_daily_credits_prior_90d (floor Rs 1000)",
       "preconditions": {"history_days_gte": 90},
       "tiers": [
-        {"severity": "medium", "condition": "burst_ratio_24h >= 10 AND credits_24h >= 50000", "points": 5, "source": "assumption"},
-        {"severity": "high", "condition": "burst_ratio_24h >= 30 AND credits_24h >= 50000", "points": 8, "source": "assumption"}
+        {"severity": "medium", "condition": "burst_ratio_24h >= 10 AND credits_24h >= 50000", "points": 3, "source": "assumption"},
+        {"severity": "high", "condition": "burst_ratio_24h >= 30 AND credits_24h >= 50000", "points": 5, "source": "assumption"}
       ],
       "reason": "24 h inflow Rs {x} is {r}x this account's normal daily level"
     },
@@ -77,8 +77,8 @@
       "feature": "turnover_income_ratio_30d = credits_30d / (declared_income / 12)",
       "preconditions": {"profile_fetched": true, "declared_income_gt": 0, "credits_30d_gte": 50000},
       "tiers": [
-        {"severity": "medium", "condition": "ratio >= 3", "points": 8, "source": "RBI draft 2026 trigger 'disproportionate to declared profile'; FATF 2023; multiple is assumption"},
-        {"severity": "high", "condition": "ratio >= 10", "points": 15, "source": "same; multiple is assumption"}
+        {"severity": "medium", "condition": "ratio >= 3", "points": 4, "source": "RBI draft 2026 trigger 'disproportionate to declared profile'; FATF 2023; multiple is assumption"},
+        {"severity": "high", "condition": "ratio >= 10", "points": 8, "source": "same; multiple is assumption"}
       ],
       "reason": "Rs {x} received in 30 days vs declared income Rs {inc}/yr ({r}x monthly income)",
       "notes": "declared_income is annual INR."
@@ -87,7 +87,7 @@
       "id": "R07", "family": "PROFILE", "name": "occupation_mismatch",
       "feature": "occupation_class in [student, unemployed, homemaker, daily_wage, labourer, retired]",
       "preconditions": {"profile_fetched": true, "requires_family_points": {"FLOW": 10}},
-      "tiers": [{"severity": "medium", "condition": "credits_30d >= 100000", "points": 8, "source": "Europol EMMA; Delhi and Kashmir police cases; Rs 1 lakh is assumption"}],
+      "tiers": [{"severity": "medium", "condition": "credits_30d >= 100000", "points": 12, "source": "Europol EMMA; Delhi and Kashmir police cases; Rs 1 lakh is assumption"}],
       "reason": "{occupation} account moved Rs {x} in 30 days",
       "notes": "Age is context only (0 points) to avoid demographic scoring."
     },
@@ -95,8 +95,8 @@
       "id": "R08", "family": "PROFILE", "name": "new_account_high_volume",
       "feature": "account_age_days, credits since opening, fan_in_7d",
       "tiers": [
-        {"severity": "medium", "condition": "account_age_days <= 90 AND credits_total >= 50000", "points": 5, "source": "FATF 2023 (rapid high-value activity after opening); numbers assumption"},
-        {"severity": "high", "condition": "account_age_days <= 30 AND (credits_total >= 50000 OR fan_in_7d >= 8)", "points": 10, "source": "vendor rule (under 30 days, 8+ sources)"}
+        {"severity": "medium", "condition": "account_age_days <= 90 AND credits_total >= 50000", "points": 3, "source": "FATF 2023 (rapid high-value activity after opening); numbers assumption"},
+        {"severity": "high", "condition": "account_age_days <= 30 AND (credits_total >= 50000 OR fan_in_7d >= 8)", "points": 5, "source": "vendor rule (under 30 days, 8+ sources)"}
       ],
       "reason": "Account opened {d} days ago already received Rs {x}",
       "notes": "Not a gate: about 60% of mule accounts in the RUSI/Lloyds sample were over a year old."
@@ -105,8 +105,8 @@
       "id": "R09", "family": "PROFILE", "name": "dormant_reactivation",
       "feature": "dormancy_gap_days before current burst; active for 180 days after reactivation",
       "tiers": [
-        {"severity": "medium", "condition": "gap >= 365 AND credits_7d_after >= 25000", "points": 10, "source": "RBI inoperative-account rules (annual review); Rs 25,000 assumption"},
-        {"severity": "high", "condition": "gap >= 730 AND credits_7d_after >= 25000", "points": 14, "source": "RBI: inoperative after 2 years, 6 months monitoring after reactivation"}
+        {"severity": "medium", "condition": "gap >= 365 AND credits_7d_after >= 25000", "points": 20, "source": "RBI inoperative-account rules (annual review); Rs 25,000 assumption"},
+        {"severity": "high", "condition": "gap >= 730 AND credits_7d_after >= 25000", "points": 20, "source": "RBI: inoperative after 2 years, 6 months monitoring after reactivation"}
       ],
       "reason": "Dormant {d} days, then Rs {x} moved within 7 days",
       "notes": "Debits are the proxy for customer-induced transactions."
@@ -116,8 +116,8 @@
       "feature": "device_degree = distinct accounts sharing a device_id (accounts.device_id and transfers.device_id on debits)",
       "preconditions": {"profile_fetched": true},
       "tiers": [
-        {"severity": "medium", "condition": "device_degree >= 3", "points": 10, "source": "GEM (Alipay, CIKM 2018) device aggregation; 3 is assumption"},
-        {"severity": "high", "condition": "device_degree >= 10", "points": 18, "source": "BioCatch India 2024: mule devices averaged 35 accounts; 10 is conservative assumption"}
+        {"severity": "medium", "condition": "device_degree >= 3", "points": 25, "source": "GEM (Alipay, CIKM 2018) device aggregation; 3 is assumption"},
+        {"severity": "high", "condition": "device_degree >= 10", "points": 25, "source": "BioCatch India 2024: mule devices averaged 35 accounts; 10 is conservative assumption"}
       ],
       "reason": "Device {dev} is used by {n} accounts"
     },
@@ -128,7 +128,7 @@
     },
     {
       "id": "R12", "family": "NETWORK", "name": "new_device_debits",
-      "tiers": [{"severity": "medium", "condition": "device_switch_24h >= 2 AND debits_24h >= 10000", "points": 8, "source": "FATF 2023 device anomalies; account-takeover rule; numbers assumption"}],
+      "tiers": [{"severity": "medium", "condition": "device_switch_24h >= 2 AND debits_24h >= 10000", "points": 14, "source": "FATF 2023 device anomalies; account-takeover rule; numbers assumption"}],
       "reason": "Debits from {n} unfamiliar devices in 24 h"
     },
     {
@@ -175,22 +175,22 @@
     },
     {
       "id": "R19", "family": "EXIT", "name": "mixed_rails_out",
-      "tiers": [{"severity": "low", "condition": "rails_out_24h >= 3 after a credit", "points": 4, "source": "assumption"}],
+      "tiers": [{"severity": "low", "condition": "rails_out_24h >= 3 after a credit", "points": 8, "source": "assumption"}],
       "reason": "Outflows split across {rails}"
     },
     {
       "id": "R20", "family": "STRUCT", "name": "consolidation",
-      "tiers": [{"severity": "medium", "condition": ">= 5 credits each < 10000 then one debit >= 80% of their sum within 24h", "points": 8, "source": "BioCatch India (mule-as-a-service consolidation); numbers assumption"}],
+      "tiers": [{"severity": "medium", "condition": ">= 5 credits each < 10000 then one debit >= 80% of their sum within 24h", "points": 3, "source": "BioCatch India (mule-as-a-service consolidation); numbers assumption"}],
       "reason": "{n} small credits combined into one Rs {x} payout"
     },
     {
       "id": "R21", "family": "STRUCT", "name": "round_amounts",
-      "tiers": [{"severity": "low", "condition": "round_share >= 0.7 AND n_credits >= 5", "points": 3, "source": "vendor typologies (weak); numbers assumption"}],
+      "tiers": [{"severity": "low", "condition": "round_share >= 0.7 AND n_credits >= 5", "points": 2, "source": "vendor typologies (weak); numbers assumption"}],
       "reason": "{pct}% of credits are round thousands"
     },
     {
       "id": "R22", "family": "STRUCT", "name": "just_below_rbi_floor",
-      "tiers": [{"severity": "low", "condition": "sub_floor_share (amounts 900-999) >= 0.5 AND n >= 5", "points": 4, "source": "Dvara Research comments on RBI draft; numbers assumption"}],
+      "tiers": [{"severity": "low", "condition": "sub_floor_share (amounts 900-999) >= 0.5 AND n >= 5", "points": 15, "source": "Dvara Research comments on RBI draft; numbers assumption"}],
       "reason": "Repeated amounts just below Rs 1,000"
     },
     {
@@ -200,7 +200,7 @@
     },
     {
       "id": "R24", "family": "MISC", "name": "failed_bursts",
-      "tiers": [{"severity": "low", "condition": "failed_count_24h >= 5", "points": 3, "source": "FATF 2023 (failed attempts, automation); number assumption"}],
+      "tiers": [{"severity": "low", "condition": "failed_count_24h >= 5", "points": 10, "source": "FATF 2023 (failed attempts, automation); number assumption"}],
       "reason": "{n} failed transfers in 24 h"
     },
     {
@@ -211,7 +211,7 @@
     },
     {
       "id": "N2", "family": "NEG", "name": "salary_like",
-      "tiers": [{"condition": ">= 3 monthly credits from the same payer, day +-3, amount CV < 0.10 (120d)", "points": -8, "source": "assumption"}],
+      "tiers": [{"condition": ">= 3 monthly credits from the same payer, day +-3, amount CV < 0.10 (120d)", "points": -4, "source": "assumption"}],
       "reason": "Regular monthly salary-like credits from {payer}"
     },
     {
@@ -222,7 +222,7 @@
     {
       "id": "N4", "family": "NEG", "name": "balance_retention",
       "requires_inputs": ["accounts.opening_balance"],
-      "tiers": [{"condition": "median_eod_balance_30d >= 0.30 * credits_30d", "points": -8, "source": "assumption (inverse of pass-through)"}],
+      "tiers": [{"condition": "median_eod_balance_30d >= 0.30 * credits_30d", "points": -4, "source": "assumption (inverse of pass-through)"}],
       "reason": "Account retains funds (median balance Rs {b})"
     },
     {

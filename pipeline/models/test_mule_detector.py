@@ -49,7 +49,7 @@ def test_fifo_allocates_oldest_first():
 def test_pass_through_fires_high():
     res = score(acct(), mule_trs())
     hit = rules_of(res)["R01"]
-    assert hit["severity"] == "high" and hit["points"] == 25
+    assert hit["severity"] == "high" and hit["points"] == 30
     assert "within 15 min" in hit["reason_text"]
 
 
