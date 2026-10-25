@@ -81,6 +81,47 @@ function Inbox() {
     })), id => { API.pick.case = id; e.go("trail") }))))
 }
 
+/* Money flow: accounts as boxes in one column per hop, transfers as bands whose width follows the amount */
+function TrailGraph({ rows }) {
+ const first = Math.min(...rows.map(r => r.hop));
+ const layer = {}, inflow = {}, edges = {};
+ for (const r of rows) {
+  const to = r.to_ref || "CASH";
+  layer[to] = Math.min(layer[to] ?? 1e9, r.hop - first + 1);
+  inflow[to] = (inflow[to] || 0) + Number(r.traced_amount);
+  const k = r.from_ref + ">" + to;
+  edges[k] = edges[k] || { from: r.from_ref, to, amount: 0 };
+  edges[k].amount += Number(r.traced_amount);
+ }
+ for (const r of rows) if (layer[r.from_ref] === undefined) layer[r.from_ref] = 0;
+ const cols = {};
+ Object.keys(layer).forEach(n => (cols[layer[n]] = cols[layer[n]] || []).push(n));
+ Object.values(cols).forEach(c => c.sort((a, b) => (inflow[b] || 0) - (inflow[a] || 0)));
+ const W = 150, H = 30, GX = 120, GY = 14, PAD = 12;
+ const ncols = Math.max(...Object.keys(cols).map(Number)) + 1, tall = Math.max(...Object.values(cols).map(c => c.length));
+ const width = PAD * 2 + ncols * W + (ncols - 1) * GX, height = PAD * 2 + tall * H + (tall - 1) * GY;
+ const pos = {};
+ for (const [c, list] of Object.entries(cols)) {
+  const used = list.length * H + (list.length - 1) * GY, top = PAD + (height - PAD * 2 - used) / 2;
+  list.forEach((n, i) => { pos[n] = { x: PAD + c * (W + GX), y: top + i * (H + GY) } });
+ }
+ const max = Math.max(...Object.values(edges).map(e => e.amount));
+ const wide = a => Math.max(1.5, 14 * Math.sqrt(a / max));
+ const kind = n => n === "CASH" ? "cash" : n.startsWith("TRON:") || n.startsWith("PAYTM:") || n.startsWith("IPPB:") || n.startsWith("AIRTEL:") ? "wallet" : layer[n] === 0 ? "victim" : "bank";
+ const fill = { cash: "var(--exit, #b91c1c)", wallet: "var(--changed, #7c3aed)", victim: "var(--accent, #2563eb)", bank: "var(--primary, #1d4ed8)" };
+ const label = n => n === "CASH" ? "Cash out" : n.replace(/^([A-Z]+:)(.*)$/, (m, b, a) => b + (a.length > 8 ? "…" + a.slice(-6) : a));
+ return h("div", { style: { overflowX: "auto" } }, h("svg", { viewBox: `0 0 ${width} ${height}`, width, height, role: "img", "aria-label": "Money flow", style: { maxWidth: "100%", minWidth: Math.min(width, 640), height: "auto", display: "block" } },
+  Object.values(edges).map((e, i) => {
+   const a = pos[e.from], b = pos[e.to], x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x, y2 = b.y + H / 2, dx = Math.max(40, Math.abs(x2 - x1) / 2);
+   return h("path", { key: i, d: `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`, fill: "none", stroke: fill[kind(e.to)], strokeOpacity: 0.35, strokeWidth: wide(e.amount) },
+    h("title", null, `${e.from} → ${e.to}: ${money(e.amount)}`));
+  }),
+  Object.entries(pos).map(([n, p]) => h("g", { key: n }, h("title", null, `${n}${inflow[n] ? " · received " + money(inflow[n]) : ""}`),
+   h("rect", { x: p.x, y: p.y, width: W, height: H, rx: 6, fill: fill[kind(n)], fillOpacity: 0.16, stroke: fill[kind(n)], strokeWidth: 1.2 }),
+   h("text", { x: p.x + W / 2, y: p.y + 13, textAnchor: "middle", fontSize: 11, fontWeight: 600, fill: "currentColor" }, label(n)),
+   h("text", { x: p.x + W / 2, y: p.y + 25, textAnchor: "middle", fontSize: 10, fill: "currentColor", opacity: 0.7 }, inflow[n] ? money(inflow[n]) : "victim")))));
+}
+
 /* ------------------------------------------------------------------ Trail */
 function Trail() {
  const e = useApp(),
@@ -106,6 +147,7 @@ function Trail() {
     h(Kpi, { label: "Amount lost", value: money(it.c.total_lost) }),
     h(Kpi, { label: "Traced (first hop)", value: money(traced), tone: "rec" }),
     h(Kpi, { label: "Hops", value: String(rows.length ? Math.max(...rows.map(r => r.hop)) : 0), sub: `${rows.length} transfers` })),
+   rows.length > 0 && h("div", { style: { marginTop: 18 } }, h(Card, { title: "Money flow", sub: "Each column is one hop. Wider bands carried more of the victim's money." }, h(TrailGraph, { rows }))),
    h("div", { style: { marginTop: 18 } }, h(Card, { title: `Trail · ${method.toUpperCase()}`, sub: id },
     h(Status, { st }),
     !st.loading && !st.err && rows.length === 0 ? Empty("Not traced yet.", "The orchestrator has not written a trail for this complaint.") :
