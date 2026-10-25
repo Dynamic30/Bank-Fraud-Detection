@@ -369,6 +369,41 @@ function Trail() {
 }
 
 /* ------------------------------------------------------------ Mule radar */
+/* "Why is this account flagged?": a small pop-up on the Mule radar with the score, the reasons in plain words, who flagged it, and the actions */
+function WhyPopup({ id, st, mule, onClose, children }) {
+ const a = st.data;
+ R.useEffect(() => {
+  const esc = ev => { if (ev.key === "Escape") onClose() };
+  document.addEventListener("keydown", esc);
+  return () => document.removeEventListener("keydown", esc)
+ }, []);
+ const score = a && a.score != null ? Number(a.score) : null;
+ const reasons = a && Array.isArray(a.reasons) ? a.reasons : [];
+ const why = reasons.filter(r => r.rule_id !== "NOTE" && r.reason_text), notes = reasons.filter(r => r.rule_id === "NOTE" && r.reason_text);
+ const risk = score == null ? "" : score >= 70 ? "High risk" : score >= 40 ? "Medium risk" : "Low risk";
+ const facts = a ? [a.repeat_offender_count ? `Named in ${a.repeat_offender_count} complaint${a.repeat_offender_count === 1 ? "" : "s"}` : null,
+  mule ? `Flagged by ${String(mule.source).replace("_", " ")} · ${mule.status} · ${when(mule.first_flagged_at)}` : null].filter(Boolean) : [];
+ return h("div", { className: "backdrop", onClick: onClose },
+  h("div", { className: "modal", style: { width: "min(520px,100%)", padding: "22px 24px" }, role: "dialog", "aria-label": "Why this account is flagged", onClick: ev => ev.stopPropagation() },
+   h("div", { style: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" } },
+    h("div", null, h("div", { className: "mono cell-sub" }, id),
+     h("div", { className: "modal-title", style: { fontSize: 22, marginTop: 2 } }, a ? a.holder_name || "Unnamed holder" : "…"),
+     a && h("div", { className: "cell-sub" }, a.bank_id || a.kind)),
+    h("button", { className: "modal-x", onClick: onClose, "aria-label": "Close" }, "✕")),
+   h(Status, { st }),
+   a && h(R.Fragment, null,
+    h("div", { style: { display: "flex", alignItems: "baseline", gap: 10, margin: "14px 0 2px" } },
+     h("span", { className: "why-score", style: { fontFamily: '"Source Serif 4",serif', fontSize: 34, fontWeight: 700 } }, score == null ? "—" : Math.round(score)),
+     score == null ? h("span", { className: "cell-sub" }, "Not scored yet") : h(R.Fragment, null, h(Pill, { tone: scoreTone(score) }, risk), h("span", { className: "cell-sub" }, "out of 100"))),
+    h("div", { className: "sec-title", style: { fontSize: 15, marginTop: 12 } }, "Why it is flagged"),
+    why.length ? h("ol", { className: "reasons" }, why.map((r, i) => h("li", { key: i }, r.reason_text,
+     r.points ? h("span", { className: "cell-sub", style: { marginLeft: 6 } }, `+${r.points}`) : null))) :
+     h("p", { className: "sec", style: { fontSize: 13 } }, score == null ? "Nothing to explain yet. Re-run it to read this account from the bank and score it." : "No strong mule signal: it behaves like an ordinary account."),
+    notes.map((n, i) => h("div", { key: i, className: "cell-sub", style: { marginTop: 6 } }, n.reason_text)),
+    facts.length > 0 && h("div", { className: "cell-sub", style: { marginTop: 12 } }, facts.join(" · ")),
+    h("div", { className: "btn-row", style: { marginTop: 14 } }, children))))
+}
+
 function Radar() {
  const e = useApp(),
   officer = e.user.key === "officer",
@@ -378,6 +413,7 @@ function Radar() {
  const detail = useGet(sel ? `/accounts/${encodeURIComponent(sel)}` : null, [sel]);
  const run = useDo(e, null);
  const a = detail.data;
+ const closeWhy = () => { API.pick.account = null; setSel(null) };
  const rerunAccount = id => API.call("POST", `/accounts/${encodeURIComponent(id)}/rerun`).then(r => {
   e.toast(`Read ${r.transfers_read} transfers · ${r.score == null ? "not enough data to score yet" : "score " + Math.round(r.score)}`);
   accts.reload(); detail.reload()
@@ -392,23 +428,18 @@ function Radar() {
     cells: [h("span", { className: "mono" }, x.account_id), x.holder_name || "—", x.bank_id || "—", x.kind, x.score == null ? "—" : h(Pill, { tone: scoreTone(Number(x.score)) }, Number(x.score).toFixed(0)),
      x.score == null && x.kind === "bank" ? h("button", { className: "btn sm", title: "Read this account from the bank and score it", onClick: ev => { ev.stopPropagation(); rerunAccount(x.account_id) } }, "Run") : null]
    })), setSel)),
-  sel && h("div", { style: { marginTop: 18 } }, h(Card, { title: sel, sub: a ? `${a.holder_name || "—"} · ${a.bank_id || a.kind}` : "" },
-   h(Status, { st: detail }),
-   a && h(R.Fragment, null,
-    h("div", { className: "kpis three" }, h(Kpi, { label: "Score", value: a.score == null ? "—" : Number(a.score).toFixed(0) }),
-     h(Kpi, { label: "Complaints naming it", value: String(a.repeat_offender_count) }), h(Kpi, { label: "Model", value: a.model_version || "—" })),
-    h("pre", { className: "mono", style: { whiteSpace: "pre-wrap", fontSize: 12, marginTop: 12 } }, a.reasons ? JSON.stringify(a.reasons, null, 2) : "No score reasons yet."),
-    h("div", { className: "btn-row" }, h("button", { className: "btn ghost sm", title: "Read this account from the bank again and score it again", onClick: () => rerunAccount(sel) }, "Re-run (read + score)"),
-    a.kind === "bank" && h("button", {
-     className: "btn hold sm", onClick: () => run("Hold requested", () => API.call("POST", "/holds", { account_id: sel, reason: `Mule score ${a.score == null ? "n/a" : Number(a.score).toFixed(0)}`, score_at_time: a.score }))
-    }, officer ? "Request hold" : "Place 24h hold"),
-    officer && a.kind === "bank" && (API.pick.case || (API.get().items[0] || { c: {} }).c.id) && h("button", {
-     className: "btn danger sm", title: "Draft and approve a freeze request to the bank",
-     onClick: () => run("Freeze request approved. Press Send in Action pack", () => freezeRequest({
-      complaint_id: API.pick.case || API.get().items[0].c.id, account_id: sel, bank_id: a.bank_id, amount: null,
-      reason: `Mule score ${a.score == null ? "n/a" : Number(a.score).toFixed(0)}`
-     }).then(r => { e.go("action"); return r }))
-    }, "Freeze"))))),
+  sel && h(WhyPopup, { id: sel, st: detail, mule: (mules.data || []).find(m => m.account_id === sel), onClose: closeWhy },
+   h("button", { className: "btn ghost sm", title: "Read this account from the bank again and score it again", onClick: () => rerunAccount(sel) }, "Re-run (read + score)"),
+   a && a.kind === "bank" && h("button", {
+    className: "btn hold sm", onClick: () => run("Hold requested", () => API.call("POST", "/holds", { account_id: sel, reason: `Mule score ${a.score == null ? "n/a" : Number(a.score).toFixed(0)}`, score_at_time: a.score })).then(closeWhy)
+   }, officer ? "Request hold" : "Place 24h hold"),
+   a && officer && a.kind === "bank" && (API.pick.case || (API.get().items[0] || { c: {} }).c.id) && h("button", {
+    className: "btn danger sm", title: "Draft and approve a freeze request to the bank",
+    onClick: () => run("Freeze request approved. Press Send in Action pack", () => freezeRequest({
+     complaint_id: API.pick.case || API.get().items[0].c.id, account_id: sel, bank_id: a.bank_id, amount: null,
+     reason: `Mule score ${a.score == null ? "n/a" : Number(a.score).toFixed(0)}`
+    }).then(r => { e.go("action"); return r }))
+   }, "Freeze")),
   h("div", { style: { marginTop: 18 } }, h(Card, { title: "Flagged mules", sub: "mule_accounts" },
    !mules.data || mules.data.length === 0 ? Empty("Nothing flagged yet.", "") :
    Table([["Account"], ["Bank"], ["Status"], ["Source"], ["First flagged", "", "nowrap"]], mules.data.map(m => ({
