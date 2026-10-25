@@ -338,7 +338,9 @@ ${hist?"Conversation so far:\n"+hist+"\n":""}Question: ${a}`;
  const o = async (a, g, typed) => {
   const SM = typed && window.PeechaRT ? await window.PeechaRT.sample() : null;
   if (SM) return askClaude(SM, a);
-  const S = V(e, a, m);
+  const LVX = window.PeechaAPI.get(),
+   LIVEX = LVX.status === "live",
+   S = LIVEX ? null : V(e, a, m);
   if (S) {
    y(v => [...v, {
     who: "me",
@@ -363,7 +365,17 @@ ${hist?"Conversation so far:\n"+hist+"\n":""}Question: ${a}`;
     W = setTimeout(() => v.abort(), 9e3),
     w = e.D.graphs[e.caseId],
     P = e.D.states[e.caseId],
-    O = {
+    O = LIVEX ? (() => {
+     const it = LVX.items.find(i => i.c.id === window.PeechaAPI.pick.case) || LVX.items[0];
+     return {
+      case: it && it.c,
+      payments: it && it.payments,
+      trail: it && it.trail.slice(0, 40),
+      complaints: LVX.items.length,
+      pendingHolds: (LVX.meta || {}).pendingHolds,
+      flaggedAccounts: (LVX.meta || {}).flagged
+     }
+    })() : {
      clock: L(e.S.clock),
      case: w && {
       id: w.c.id,

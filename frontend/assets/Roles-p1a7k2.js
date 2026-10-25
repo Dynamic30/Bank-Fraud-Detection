@@ -19,6 +19,7 @@ import {
  k as dl,
  D as ROLES
 } from "./index-DAvlYmAS.js";
+import { Offline } from "./Officer.js";
 const h = R.createElement;
 /* live backend data for the consumer screens (assets/api.js); status "live" = use it, anything else = demo engine */
 const API = window.PeechaAPI || {
@@ -615,7 +616,7 @@ export function FileComplaint() {
   role = e.user.key;
  const me = role === "consumer" ? W.accounts[e.victimId] : null;
  const [f, setF] = R.useState({
-  name: me ? me.name : "",
+  name: role === "consumer" ? API.get().userName || "" : "",
   phone: "",
   city: me ? me.city : "",
   victimAccount: me ? `${BS[me.bank]} ${me.mask}` : "",
@@ -728,9 +729,9 @@ export function FileComplaint() {
    },
    h("button", {
     className: "btn",
-    disabled: !ok || busy,
+    disabled: !ok || busy || !useBackend,
     onClick: () => {
-     if (!useBackend) return e.fileComplaint(f);
+     if (!useBackend) return;
      setBusy(true);
      API.file(f).then(r => {
       e.close();
@@ -978,56 +979,12 @@ function LiveMine({
   }, h("b", null, "You have no complaints yet."), h("span", null, "File one and we will start following your money.")))));
 }
 export function Mine() {
- const e = useApp(),
-  live = useLive(),
-  cases = e.D.cases,
-  mine = e.myFiled || [];
- if (live.status === "live") return h(LiveMine, {
+ const live = useLive();
+ return live.status === "live" ? h(LiveMine, {
   items: live.items
-});
- return h(R.Fragment, null,
-  h(PageHead, {
-   title: "My complaints",
-   desc: "See where your complaint stands and where your money is now.",
-   actions: h("button", {
-    className: "btn",
-    onClick: () => e.open("file")
-   }, "＋ File a complaint")
-  }),
-  cases.map(c => h(CaseCard, {
-   key: c.id,
-   c
-  })),
-  mine.slice().reverse().map(f => h(Card, {
-    key: f.id,
-    title: f.scamType,
-    sub: `${f.id} · ${inr(f.amount)} lost · paid to a ${f.destination==="crypto"?"crypto wallet":"bank account / UPI"}`,
-    style: {
-     marginTop: 18
-    }
-   },
-   h(Steps, {
-    items: [
-     ["Filed", true],
-     ["Tracing", f.status !== "filed"],
-     ["Bank notified", false],
-     ["Money held", false]
-    ]
-   }),
-   h("p", {
-    className: "sec",
-    style: {
-     fontSize: 13,
-     marginTop: 12
-    }
-   }, f.status === "filed" ? "Received. An officer will start the trace shortly." : "An officer has started tracing your money."))),
-  cases.length === 0 && mine.length === 0 && h("div", {
-   style: {
-    marginTop: 18
-   }
-  }, h(Card, {}, h("div", {
-   className: "empty"
-  }, h("b", null, "You have no complaints yet."), h("span", null, "File one and we will start following your money.")))));
+ }) : h(Offline, {
+  state: live
+ })
 }
 
 /* ------------------------------------------------------------------ Cases */
@@ -1744,24 +1701,12 @@ function ConsumerReports() {
   {
    D
   } = e;
- const items = live.status === "live" ? live.items.map(it => ({
+ const items = live.items.map(it => ({
   id: it.c.id,
   title: it.c.scam_type,
   sub: `${inr(Number(it.c.total_lost))} lost`,
   text: () => liveReportText(it, e.user.key === "consumer")
- })) : [...D.cases.map(c => ({
-   id: c.id,
-   title: c.type,
-   sub: `${inr(c.amount)} lost`,
-   text: () => caseReportText(e, c)
-  })),
-  ...e.myFiled.map(f => ({
-   id: f.id,
-   title: f.scamType,
-   sub: `${inr(f.amount)} lost · filed by you`,
-   text: () => filedReportText(e, f)
-  }))
- ];
+ }));
  const make = list => {
   const body = list.map(i => i.text()).join("\n\n" + "=".repeat(60) + "\n\n");
   return {
@@ -1828,7 +1773,8 @@ function ConsumerReports() {
     }, "Print / PDF")))));
 }
 export function Reports() {
- const e = useApp(),
-  live = useLive();
- return e.user.key === "consumer" || (e.user.key !== "consumer" && live.status === "live") ? h(ConsumerReports, null) : h(ActionReport, null)
+ const live = useLive();
+ return live.status === "live" ? h(ConsumerReports, null) : h(Offline, {
+  state: live
+ })
 }

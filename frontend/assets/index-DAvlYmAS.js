@@ -7321,7 +7321,18 @@ const st = A(6, 14, 18),
   AUBL: "AU Small Finance Bank",
   FINO: "Fino Payments Bank",
   AIRP: "Airtel Payments Bank",
-  IMPT: "Imported data"
+  IMPT: "Imported data",
+  BARB: "Bank of Baroda",
+  IDIB: "Indian Bank",
+  INDB: "IndusInd Bank",
+  YESB: "Yes Bank",
+  RATN: "RBL Bank",
+  FDRL: "Federal Bank",
+  BDBL: "Bandhan Bank",
+  ESFB: "Equitas Small Finance Bank",
+  SIBL: "South Indian Bank",
+  PYTM: "Paytm Payments Bank",
+  IPOS: "India Post Payments Bank"
  },
  gh = {
   BKID: "Bank of India",
@@ -7337,7 +7348,18 @@ const st = A(6, 14, 18),
   AUBL: "AU SFB",
   FINO: "Fino PB",
   AIRP: "Airtel PB",
-  IMPT: "Imported"
+  IMPT: "Imported",
+  BARB: "Bank of Baroda",
+  IDIB: "Indian Bank",
+  INDB: "IndusInd",
+  YESB: "Yes Bank",
+  RATN: "RBL",
+  FDRL: "Federal",
+  BDBL: "Bandhan",
+  ESFB: "Equitas SFB",
+  SIBL: "South Indian",
+  PYTM: "Paytm PB",
+  IPOS: "India Post PB"
  },
  Ft = {
   A: "Exchange A",
@@ -10028,6 +10050,16 @@ function visFiled(t) {
 }
 
 function userOf(t, D) {
+ const u = userOf0(t, D),
+  A = window.PeechaAPI,
+  st = A && A.get();
+ return u && st && st.status === "live" && st.userName ? {
+  ...u,
+  name: st.userName
+ } : u
+}
+
+function userOf0(t, D) {
  if (!t.session) return null;
  const b = se[t.session];
  if (t.session === "analyst") return {
@@ -10113,7 +10145,7 @@ function navOf(r) {
  ] : [
   ["inbox", "▤", "Cases", ["inbox"]],
   ["trail", "⟿", "Money action", ["trail"]],
-  ["accounts", "◉", "Mule radar", ["accounts", "prevent"]],
+  ["accounts", "◉", "Mule radar", ["accounts", "prevent", "crypto"]],
   ["holds", "◈", "Holds", ["holds", "action"]],
   ["reports", "▦", "Reports", ["reports"]], r === "officer" ? ["model", "▧", "System", ["model", "audit", "settings"]] : ["settings", "⚙", "Settings", ["settings"]]
  ]
@@ -10136,7 +10168,12 @@ function TabsBar() {
  const G = {
   accounts: [
    ["accounts", "Mule accounts"],
-   ["prevent", "Prevention calls"]
+   ["prevent", "Prevention calls"],
+   ["crypto", "Crypto wallets"]
+  ],
+  holds: [
+   ["holds", "Holds"],
+   ["action", "Action pack"]
   ],
   model: [
    ["model", "Model & metrics"],
@@ -11179,11 +11216,17 @@ function Vp() {
   login: e,
   D: t,
   startTour: n
- } = xt(), [r, l] = H.useState("officer"), o = t.W, vs = [...new Map(o.cases.map(c => [c.victim, c])).values()], [bk, setBk] = H.useState("SBIN"), [vid, setVid] = H.useState((vs[0] || {}).victim),
-  go2 = k => e(k, {
+ } = xt(), [r, l] = H.useState("officer"), o = t.W, vs = [...new Map(o.cases.map(c => [c.victim, c])).values()], [bk, setBk] = H.useState("SBIN"), [vid, setVid] = H.useState((() => {
+   try {
+    return localStorage.getItem("pc-consumer-email") || "anil.verma@mail.example"
+   } catch {
+    return "anil.verma@mail.example"
+   }
+  })()),
+  go2 = k => (window.PeechaAPI.reset(), e(k, {
    bank: bk,
    victimId: vid
-  }), i = t.cases.reduce((s, a) => s + a.amount, 0);
+  })), i = t.cases.reduce((s, a) => s + a.amount, 0);
  return S.jsxs("main", {
   className: "login",
   children: [S.jsx("div", {
@@ -11229,6 +11272,7 @@ function Vp() {
      })]
     }), S.jsxs("div", {
      className: "login-stats",
+     hidden: !0,
      children: [S.jsxs("div", {
       className: "login-stat",
       children: [S.jsxs("div", {
@@ -11328,7 +11372,7 @@ function Vp() {
        },
        value: bk,
        onChange: q => setBk(q.target.value),
-       children: Object.keys(Ze).filter(k => k !== "IMPT").map(k => S.jsx("option", {
+       children: Object.keys(Ze).filter(k => window.PeechaAPI.banks[k]).map(k => S.jsx("option", {
         value: k,
         children: Ze[k]
        }, k))
@@ -11353,11 +11397,20 @@ function Vp() {
         marginTop: 4
        },
        value: vid,
-       onChange: q => setVid(q.target.value),
-       children: vs.map(c => S.jsx("option", {
-        value: c.victim,
-        children: o.accounts[c.victim].name + " · " + Ze[o.accounts[c.victim].bank]
-       }, c.victim))
+       onChange: q => {
+        setVid(q.target.value);
+        try {
+         localStorage.setItem("pc-consumer-email", q.target.value)
+        } catch {}
+       },
+       children: [
+        ["anil.verma@mail.example", "Anil Verma"],
+        ["priya.sharma@mail.example", "Priya Sharma"],
+        ["imran.qureshi@mail.example", "Imran Qureshi"]
+       ].map(([v, n]) => S.jsx("option", {
+        value: v,
+        children: n
+       }, v))
       })]
      }), S.jsxs("button", {
       className: "btn",
@@ -11913,6 +11966,9 @@ const RolesLz = q => H.lazy(() => $e(() => import("./Roles-p1a7k2.js").then(m =>
  FilePg = RolesLz("FileComplaint");
 /* officer screens: use the live backend pages (Officer.js) when the API is reachable, else the demo page */
 const OfficerLz = H.lazy(() => $e(() => import("./Officer.js"), [], import.meta.url)),
+ OfflineLz = H.lazy(() => $e(() => import("./Officer.js").then(m => ({
+  default: m.Offline
+ })), [], import.meta.url)),
  SettingsLiveLz = H.lazy(() => $e(() => import("./Officer.js").then(m => ({
   default: m.SettingsCard
  })), [], import.meta.url)),
@@ -11925,7 +11981,13 @@ const OfficerLz = H.lazy(() => $e(() => import("./Officer.js"), [], import.meta.
   H.useEffect(() => {
    (key === "officer" || key === "analyst") && A.use(role)
   }, [role, s.status]);
-  if (!((key === "officer" || key === "analyst") && s.role === role && s.status === "live")) return S.jsx(Demo, {});
+  if (key !== "officer" && key !== "analyst") return S.jsx(Demo, {});
+  if (!(s.role === role && s.status === "live")) return page === "settings" && s.status === "offline" ? S.jsx(Demo, {}) : S.jsx(H.Suspense, {
+   fallback: null,
+   children: S.jsx(OfflineLz, {
+    state: s.role === role ? s : null
+   })
+  });
   return S.jsx(H.Suspense, {
    fallback: S.jsx("div", {
     className: "empty",
@@ -11944,6 +12006,7 @@ const nu = [
   ["accounts", "◉", "Mule radar"],
   ["action", "✎", "Action pack"],
   ["prevent", "☎", "Prevention calls"],
+  ["crypto", "₮", "Crypto wallets"],
   ["model", "▧", "Model & metrics"],
   ["audit", "⛓", "Audit trail"],
   ["settings", "⚙", "Settings"]
@@ -11963,10 +12026,10 @@ uh = {
   inbox: liveGate(CasesPg, "inbox"),
   trail: liveGate(TrailPg, "trail"),
   accounts: liveGate(Xp, "accounts"),
-  crypto: bp,
+  crypto: liveGate(bp, "crypto"),
   action: liveGate(HoldsPg, "action"),
   prevent: liveGate(Zp, "prevent"),
-  model: Jp,
+  model: liveGate(Jp, "model"),
   audit: liveGate(eh, "audit"),
   settings: liveGate(th, "settings"),
   holds: liveGate(HoldsPg, "holds"),
@@ -11981,6 +12044,7 @@ function ch() {
   r = i => i.replace(/&/g, "&amp;").replace(/</g, "&lt;"),
   l = n.map(i => `<b>${r(i.t)}</b> ${r(i.kind)} — ${r(i.text)}`).join("  •  "),
   o = Math.max(1, Math.round((t - e.lastSync) / 1e3));
+ if (window.PeechaAPI.get().status === "live") return null;
  return S.jsxs("div", {
   className: `ticker ${e.degraded?"degraded":""}`,
   role: "status",
@@ -12035,6 +12099,15 @@ function dh() {
  }
  const i = e.user,
   s = t.cases.find(a => a.demo) || null;
+ const A = window.PeechaAPI,
+  LV = H.useSyncExternalStore(A.subscribe, A.get),
+  rk = i.key === "analyst" ? "analyst:" + e.bank : i.key,
+  LIVE = LV.status === "live" && LV.role === rk,
+  meta = LV.meta || {},
+  flagged = LIVE ? meta.flagged || 0 : t.candidates.filter(k => !e.calls[k]).length,
+  pend = meta.pendingHolds || 0,
+  ck = LIVE && meta.clock ? new Date(/Z|[+-]\d\d:?\d\d$/.test(meta.clock) ? meta.clock : meta.clock + "Z") : new Date();
+ Od(30000);
  return S.jsxs(S.Fragment, {
   children: [S.jsxs("aside", {
    className: "sidebar",
@@ -12063,15 +12136,15 @@ function dh() {
       className: "nav-ico",
       "aria-hidden": "true",
       children: h
-     }), d, a === "accounts" && t.candidates.filter(k => !e.calls[k]).length > 0 && S.jsx("span", {
+     }), d, a === "accounts" && flagged > 0 && S.jsx("span", {
       className: "nav-badge",
-      children: t.candidates.filter(k => !e.calls[k]).length
+      children: flagged
      })]
     }, a))
    }), i.key === "officer" && S.jsx("button", {
-    className: `queue-btn ${l===0?"ok":""}`,
-    onClick: () => o ? e.openCase(o, "action") : e.go("action"),
-    children: l === 0 ? "✓ No holds or freezes pending" : i && i.perms.includes("approve") ? `${l} hold/freeze${l>1?"s":""} await your approval` : `${l} awaiting officer approval`
+    className: `queue-btn ${LIVE?pend===0?"ok":"":l===0?"ok":""}`,
+    onClick: () => LIVE ? e.go("holds") : o ? e.openCase(o, "action") : e.go("action"),
+    children: LIVE ? pend === 0 ? "✓ No holds waiting for you" : `${pend} hold${pend>1?"s":""} await your confirmation` : l === 0 ? "✓ No holds or freezes pending" : `${l} hold/freeze${l>1?"s":""} await your approval`
    }), S.jsxs("div", {
     className: "signed",
     children: [S.jsx("div", {
@@ -12107,7 +12180,7 @@ function dh() {
       style: {
        cursor: "pointer"
       },
-      children: Object.keys(Ze).filter(k => k !== "IMPT").map(k => S.jsx("option", {
+      children: Object.keys(Ze).filter(k => window.PeechaAPI.banks[k]).map(k => S.jsx("option", {
        value: k,
        children: "Bank: " + gh[k]
       }, k))
@@ -12149,12 +12222,22 @@ function dh() {
       }
      }), S.jsxs("div", {
       className: "clock-chip",
-      title: "Demo clock (IST)",
+      title: LIVE ? meta.clock ? "Demo clock (set in Settings)" : "Current time" : "Demo clock (IST)",
       children: [S.jsx(tr, {
        name: "clock",
        size: 15
       }), S.jsxs("span", {
-       children: [$s(n.clock), " · ", S.jsx("b", {
+       children: !0 ? [ck.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short"
+       }), " · ", S.jsx("b", {
+        className: "mono",
+        children: ck.toLocaleTimeString("en-IN", {
+         hour: "2-digit",
+         minute: "2-digit"
+        })
+       })] : [$s(n.clock), " · ", S.jsx("b", {
         className: "mono",
         children: me(n.clock)
        })]
@@ -12168,7 +12251,7 @@ function dh() {
        name: e.theme === "dark" ? "moon" : "sun",
        size: 18
       })
-     }), i.key === "officer" && S.jsx("button", {
+     }), false && S.jsx("button", {
       className: "tool-btn tour-btn",
       onClick: e.startTour,
       disabled: e.tourOn,
@@ -12183,7 +12266,7 @@ function dh() {
        className: "kbd",
        children: "Ctrl K"
       })]
-     }), e.can("events") && S.jsxs("button", {
+     }), false && S.jsxs("button", {
       className: "tool-btn",
       onClick: e.retrace,
       title: `Agent re-trace: advance the clock ${e.settings.step} min and re-follow every open case`,
@@ -12196,12 +12279,11 @@ function dh() {
      className: "scope-row",
      children: [S.jsx("span", {
       className: "chip",
-      children: i.key === "officer" ? `Scope: Cyber Crime PS Guwahati · ${t.cases.length} open complaints` : i.key === "analyst" ?
-       `Scope: ${Ze[e.bank]} · ${t.cases.length} case${t.cases.length===1?"":"s"} touching your accounts` : `Your complaints · ${t.cases.length}`
-     }), s && S.jsxs("span", {
+      children: LIVE ? i.key === "officer" ? `Scope: all complaints · ${LV.items.length}` : i.key === "analyst" ? `Scope: ${Ze[e.bank]} · ${LV.items.length} case${LV.items.length===1?"":"s"}` : `Your complaints · ${LV.items.length}` : "Not connected"
+     }), !1 && s && S.jsxs("span", {
       className: "chip warn",
       children: ["⏱ ", s.id, ": ", kd(n.clock - s.fraudAt), " since the fraud"]
-     }), e.lastRetrace && S.jsxs("span", {
+     }), !1 && e.lastRetrace && S.jsxs("span", {
       className: "chip",
       style: {
        color: "var(--changed)"
@@ -12209,7 +12291,7 @@ function dh() {
       children: ["Last re-trace ", me(e.lastRetrace.at), " · ", e.lastRetrace.newHops, " new hop", e.lastRetrace.newHops === 1 ? "" : "s", e.lastRetrace.blocked ?
        ` · ${e.lastRetrace.blocked} blocked` : ""
       ]
-     }), S.jsx("span", {
+     }), !1 && S.jsx("span", {
       className: "chip proto",
       children: "Synthetic data"
      })]

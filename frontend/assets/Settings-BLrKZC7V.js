@@ -90,8 +90,8 @@ function S() {
   i(!0), y(t.trim()), o(t.trim() ? await w(t.trim()) : null), i(!1)
  };
  return e.jsxs(c, {
-  title: "Backend (event build)",
-  sub: "Today every trace runs in this browser. On site, the FastAPI + Neo4j service implements the same contract (docs/EVENT_BUILD.md); point Peecha at it here.",
+  title: "Backend",
+  sub: "The FastAPI service Peecha reads and writes. Leave empty to use this site's own /api.",
   children: [e.jsxs("div", {
    className: "btn-row",
    children: [e.jsx("input", {
@@ -124,8 +124,8 @@ function S() {
     marginTop: 8
    },
    children: ["Status: ", e.jsx("b", {
-    children: "in-browser engine"
-   }), " (synthetic replay)."]
+    children: window.PeechaAPI.get().status === "live" ? "connected" : "not connected"
+   }), "."]
   })]
  })
 }
@@ -142,7 +142,7 @@ function N() {
  return e.jsxs(e.Fragment, {
   children: [e.jsx(x, {
    title: "Settings",
-   desc: o.key === "officer" ? "Decision thresholds, re-trace cadence, resilience and appearance. Threshold changes re-score every account live." : o.key === "analyst" ? "Your role, what you are allowed to do, and appearance. Thresholds are set by the cyber cell." : "Your profile and appearance. Your complaint data stays visible only to you, the cyber cell and the banks involved.",
+   desc: "Backend connection, appearance and server settings.",
    sources: ["Config"]
   }), e.jsxs("section", {
    className: "card card-pad",
@@ -195,7 +195,7 @@ function N() {
    })]
   }), e.jsxs("div", {
    className: "grid g-2e",
-   children: [o.key === "officer" && e.jsxs(c, {
+   children: [false && e.jsxs(c, {
     title: "Decision thresholds",
     sub: i ? "Drag to re-score live. Precision and recall on the Model page follow." : "Only an officer can change thresholds.",
     children: [e.jsx(l, {
@@ -266,7 +266,7 @@ function N() {
       children: ["₹", j, " / USDT (assumed)"]
      })
     })]
-   }), o.key === "officer" && e.jsxs(c, {
+   }), false && e.jsxs(c, {
     title: "Resilience",
     sub: "What happens when the gateways to banks and exchanges fail.",
     children: [e.jsx(l, {
@@ -341,7 +341,7 @@ function N() {
       }, s.key))
      })
     })]
-   }), o.key === "officer" && e.jsx(S, {}), e.jsx(c, {
+   }), e.jsx(S, {}), false && e.jsx(c, {
     title: "About this prototype",
     sub: "What is real and what is simulated.",
     children: e.jsxs("ul", {
